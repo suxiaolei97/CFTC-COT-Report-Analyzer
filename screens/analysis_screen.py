@@ -127,7 +127,9 @@ class AnalysisScreen(Screen[None]):
         log = self.query_one("#analysis-result", RichLog)
         log.clear()
         log.write(t("call_api", model=model))
-        ...
+
+        btn = self.query_one("#btn-run", Button)
+        btn.disabled = True
         btn.label = t("running")
 
         self._done = False

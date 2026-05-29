@@ -1,21 +1,16 @@
-import os
-import json
-
-from config import load_app_config
+_current_lang = "zh"
 
 _TRANSLATIONS = {
     "zh": {
         "app_title": "CFTC COT 数据大屏",
         "loading": "正在加载",
         "markets": "个市场",
-        "dates": "个日期",
         "latest": "最新",
         "search_placeholder": "搜索市场...",
         "showing": "显示 {count}",
         "data_table_hint": "数据表  [选择一个市场]",
         "market_detail": "市场详情",
         "no_detail": "无详细数据",
-        "no_data": "无数据",
         "date": "日期",
         "open_interest": "持仓量",
         "oi_change": "OI 变化",
@@ -28,8 +23,6 @@ _TRANSLATIONS = {
         "settings": "设置",
         "api_key": "API Key",
         "model": "模型",
-        "deepseek_v4_flash": "DeepSeek V4 Flash",
-        "deepseek_v4_pro": "DeepSeek V4 Pro",
         "thinking_intensity": "思考强度",
         "disabled": "关闭",
         "low": "低",
@@ -70,23 +63,17 @@ _TRANSLATIONS = {
         "cycle_panels": "切换面板",
         "focus_list": "聚焦列表",
         "search": "搜索",
-        "top5_long": "Top 5 非商业净多头 (全部市场)",
-        "top5_short": "Top 5 非商业净空头 (全部市场)",
-        "selected_market": "选中市场",
-        "report_label": "{type} 报告 {year}",
     },
     "en": {
         "app_title": "CFTC COT Dashboard",
         "loading": "Loading",
         "markets": "markets",
-        "dates": "dates",
         "latest": "Latest",
         "search_placeholder": "Search markets...",
         "showing": "Showing {count}",
         "data_table_hint": "Data Table  [select a market]",
         "market_detail": "Market Detail",
         "no_detail": "No detail available",
-        "no_data": "No data",
         "date": "Date",
         "open_interest": "Open Interest",
         "oi_change": "OI Change",
@@ -99,8 +86,6 @@ _TRANSLATIONS = {
         "settings": "Settings",
         "api_key": "API Key",
         "model": "Model",
-        "deepseek_v4_flash": "DeepSeek V4 Flash",
-        "deepseek_v4_pro": "DeepSeek V4 Pro",
         "thinking_intensity": "Thinking Intensity",
         "disabled": "Disabled",
         "low": "Low",
@@ -141,20 +126,18 @@ _TRANSLATIONS = {
         "cycle_panels": "Cycle Panels",
         "focus_list": "Focus List",
         "search": "Search",
-        "top5_long": "Top 5 Non-commercial Net Long",
-        "top5_short": "Top 5 Non-commercial Net Short",
-        "selected_market": "Selected Market",
-        "report_label": "{type} Report {year}",
     },
 }
 
 
+def set_lang(lang: str) -> None:
+    global _current_lang
+    if lang in _TRANSLATIONS:
+        _current_lang = lang
+
+
 def t(key: str, **kwargs) -> str:
-    cfg = load_app_config()
-    lang = cfg.get("lang", "zh")
-    if lang not in _TRANSLATIONS:
-        lang = "zh"
-    text = _TRANSLATIONS.get(lang, {}).get(key, _TRANSLATIONS["en"].get(key, key))
+    text = _TRANSLATIONS.get(_current_lang, {}).get(key, _TRANSLATIONS["en"].get(key, key))
     if kwargs:
         return text.format(**kwargs)
     return text

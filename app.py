@@ -5,7 +5,7 @@ from textual.binding import Binding
 from textual.widgets import Header
 
 from config import DEFAULT_REPORT_TYPE, DEFAULT_YEAR, DEFAULT_START_YEAR, DEFAULT_LANG, REPORT_TYPES, load_app_config, data_path
-from i18n import t
+from i18n import t, set_lang
 from models.cot_model import CotData
 from screens.analysis_screen import AnalysisScreen
 from screens.dataset_screen import DatasetScreen
@@ -43,6 +43,7 @@ class CotTui(App[None]):
     def __init__(self) -> None:
         super().__init__()
         cfg = load_app_config()
+        set_lang(cfg.get("lang", DEFAULT_LANG))
         self.report_type = cfg.get("report_type", DEFAULT_REPORT_TYPE)
         if self.report_type not in REPORT_TYPES:
             self.report_type = DEFAULT_REPORT_TYPE

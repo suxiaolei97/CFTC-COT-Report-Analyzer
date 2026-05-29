@@ -4,7 +4,7 @@ from textual.screen import Screen
 from textual.widgets import Button, Input, Label, RadioButton, RadioSet, Select
 
 from config import REPORT_TYPES, DEFAULT_REPORT_TYPE, DEFAULT_YEAR, DEFAULT_START_YEAR, DEFAULT_LANG, load_app_config, save_app_config
-from i18n import t
+from i18n import t, set_lang
 
 
 class SettingsScreen(Screen[dict]):
@@ -173,4 +173,5 @@ class SettingsScreen(Screen[dict]):
             "lang": str(sel_lang.value) if sel_lang.value else "zh",
         }
         save_app_config(data)
+        set_lang(data["lang"])
         self.dismiss(data)
