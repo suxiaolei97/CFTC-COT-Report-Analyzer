@@ -57,42 +57,49 @@ class StockModel:
             self._quotes = {}
             self._quotes_ready = True
             return
-        import time
+
         result = {}
-        rate_limited = False
-        for sym in symbols:
-            if rate_limited:
-                result[sym] = {"symbol": sym, "price": 0, "change": 0, "change_pct": 0, "name": sym, "rate_limited": True}
-                continue
-            try:
-                t = yf.Ticker(sym)
-                time.sleep(1.5)
-                info = t.info
-                price = info.get("currentPrice") or info.get("regularMarketPrice") or info.get("previousClose")
-                prev = info.get("regularMarketPreviousClose") or info.get("previousClose")
-                chg = info.get("regularMarketChange") or 0
-                chg_pct_val = info.get("regularMarketChangePercent") or 0
-                if isinstance(chg_pct_val, float):
-                    chg_pct = chg_pct_val
-                elif price and prev:
-                    chg = (price - prev) if price and prev else 0
-                    chg_pct = (chg / prev) * 100 if prev else 0
+        clean_symbols = [s.strip().upper().replace(" ", "-") for s in symbols]
+        sym_str = " ".join(clean_symbols)
+
+        try:
+            df = yf.download(sym_str, period="2d", progress=False, timeout=15)
+            if df is not None and not df.empty:
+                close_col = "Close"
+                if close_col in df.columns:
+                    closes = df[close_col]
+                    if isinstance(closes, pd.Series):
+                        closes = pd.DataFrame({sym_str: closes})
+                    for sym in clean_symbols:
+                        if sym in closes.columns:
+                            col = closes[sym].dropna()
+                            if len(col) >= 2:
+                                price = float(col.iloc[-1])
+                                prev = float(col.iloc[-2])
+                                chg = price - prev
+                                chg_pct = (chg / prev) * 100 if prev else 0
+                                result[sym] = {
+                                    "symbol": sym, "price": price,
+                                    "change": chg, "change_pct": chg_pct,
+                                    "name": sym, "currency": "USD",
+                                }
+                                continue
+                        result[sym] = {"symbol": sym, "price": 0, "change": 0, "change_pct": 0, "name": sym, "nodata": True}
                 else:
-                    chg_pct = 0
-                result[sym] = {
-                    "symbol": sym,
-                    "price": float(price) if price else 0,
-                    "change": float(chg) if chg else 0,
-                    "change_pct": float(chg_pct) if chg_pct else 0,
-                    "name": info.get("longName") or info.get("shortName") or sym,
-                    "currency": info.get("currency", "USD") or "USD",
-                }
-            except Exception as e:
-                msg = str(e).lower()
-                if "rate limit" in msg or "too many" in msg:
-                    rate_limited = True
-                    self._error = "Yahoo Finance rate limited. Try again later."
-                result[sym] = {"symbol": sym, "price": 0, "change": 0, "change_pct": 0, "name": sym, "error": "rate_limited" if rate_limited else True}
+                    for sym in clean_symbols:
+                        result[sym] = {"symbol": sym, "price": 0, "change": 0, "change_pct": 0, "name": sym, "nodata": True}
+            else:
+                for sym in clean_symbols:
+                    result[sym] = {"symbol": sym, "price": 0, "change": 0, "change_pct": 0, "name": sym, "nodata": True}
+        except Exception as e:
+            msg = str(e).lower()
+            if "rate limit" in msg or "too many" in msg:
+                self._error = "Yahoo rate limited. Wait and retry."
+            else:
+                self._error = str(e)[:80]
+            for sym in clean_symbols:
+                result[sym] = {"symbol": sym, "price": 0, "change": 0, "change_pct": 0, "name": sym, "error": True}
+
         self._quotes = result
         self._quotes_ready = True
 
@@ -103,7 +110,7 @@ class StockModel:
             info = t.info
             self._info = {
                 "symbol": symbol,
-                "name": info.get("longName", symbol),
+                "name": info.get("longName", info.get("shortName", symbol)),
                 "sector": info.get("sector", ""),
                 "industry": info.get("industry", ""),
                 "market_cap": info.get("marketCap"),
@@ -124,8 +131,7 @@ class StockModel:
     def _do_fetch_intraday(self, symbol: str) -> None:
         try:
             import yfinance as yf
-            t = yf.Ticker(symbol)
-            df = t.history(period="1d", interval="5m")
+            df = yf.download(symbol, period="1d", interval="5m", progress=False, timeout=10)
             self._intraday_df = df
         except Exception:
             self._intraday_df = None
@@ -139,16 +145,20 @@ class StockModel:
                 symbols.extend(syms)
         if symbols:
             self._do_fetch_quotes(symbols)
-            self._quotes = self._quotes
         else:
             self._quotes = {}
         self._quotes_ready = True
 
     @staticmethod
     def get_sparkline(df: pd.DataFrame | None, width: int = 40, currency: str = "USD") -> str:
-        if df is None or df.empty or "Close" not in df.columns:
+        if df is None or df.empty:
             return ""
-        closes = df["Close"].values
+        if "Close" not in df.columns:
+            return ""
+        closes = df["Close"]
+        if isinstance(closes, pd.DataFrame):
+            closes = closes.iloc[:, 0]
+        closes = closes.dropna().values
         if len(closes) < 2:
             return ""
         lo, hi = closes.min(), closes.max()

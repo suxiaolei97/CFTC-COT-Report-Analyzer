@@ -208,11 +208,19 @@ class StockScreen(Screen[None]):
                 chg_pct = q.get("change_pct", 0)
                 name = q.get("name", sym)
                 currency = q.get("currency", "")
-                has_error = q.get("error") or q.get("rate_limited")
+                has_error = q.get("error")
+                has_nodata = q.get("nodata")
+                has_limit = q.get("rate_limited")
 
-                if has_error:
+                if has_limit:
                     dt.add_row(sym, Text(name[:25], style="dim"), Text("N/A", style="dim"),
-                              Text("Limit" if q.get("rate_limited") else "Error", style="red"), "")
+                              Text("Limit", style="red"), "")
+                elif has_error:
+                    dt.add_row(sym, Text(name[:25], style="dim"), Text("N/A", style="dim"),
+                              Text("Error", style="red"), "")
+                elif has_nodata:
+                    dt.add_row(sym, Text(name[:25], style=""), Text("--", style="dim"),
+                              Text("--", style="dim"), "")
                 elif price:
                     p_text = Text(f"{price:,.2f}", style="bold")
                     if chg_pct > 0:
