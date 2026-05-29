@@ -100,8 +100,7 @@ class CotTui(App[None]):
             return
         main = self.get_current_main()
         market = main.get_selected_market() if main else None
-        ctx = self.model.to_analysis_context(market_filter=market)
-        self.push_screen(AnalysisScreen(prompt_context=ctx))
+        self.push_screen(AnalysisScreen(model=self.model, selected_market=market))
 
     def action_refresh(self) -> None:
         from models.cot_model import CotData

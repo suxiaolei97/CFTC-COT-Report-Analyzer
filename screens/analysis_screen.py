@@ -1,16 +1,18 @@
 import json
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal
+from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, Label, RichLog, TextArea
+from textual.widgets import Button, Label, RichLog, TextArea, Select
 
-from config import load_app_config
+from config import load_app_config, save_app_config
 from i18n import t
+from models.cot_model import CotData
 
 _RE_MD_BOLD = re.compile(r"\*\*(.+?)\*\*")
 _RE_MD_ITALIC = re.compile(r"\*(.+?)\*")
@@ -43,14 +45,21 @@ class AnalysisScreen(Screen[None]):
     #analysis-title {
         color: #7aafff;
         text-style: bold;
-        height: 2;
+        height: 1;
     }
-    #analysis-prompt-label {
+    #analysis-top {
+        height: auto;
+        margin-bottom: 1;
+    }
+    #analysis-market {
+        width: 60;
+    }
+    #analysis-context-label {
         color: #606080;
         margin-top: 1;
     }
-    #analysis-prompt {
-        height: 2fr;
+    #analysis-context {
+        height: 1fr;
         border: solid #2a2a5a;
     }
     #analysis-result-label {
@@ -58,7 +67,7 @@ class AnalysisScreen(Screen[None]):
         margin-top: 1;
     }
     #analysis-result {
-        height: 6fr;
+        height: 2fr;
         border: solid #2a2a5a;
     }
     #analysis-bar {
@@ -72,12 +81,18 @@ class AnalysisScreen(Screen[None]):
     Button {
         margin-left: 1;
     }
+    .section-label {
+        color: #606080;
+        height: 1;
+        margin-top: 1;
+    }
     """
 
-    def __init__(self, prompt_context: str = "") -> None:
+    def __init__(self, model: CotData, selected_market: str | None = None) -> None:
         super().__init__()
-        self.title = "DeepSeek Analysis"
-        self.prompt_context = prompt_context
+        self.title = t("deepseek_analysis")
+        self.model = model
+        self._selected_market = selected_market
         self._busy: bool = False
         self._done: bool = False
         self._error: str | None = None
@@ -86,15 +101,41 @@ class AnalysisScreen(Screen[None]):
         self._executor: object = None
 
     def compose(self) -> ComposeResult:
+        cfg = load_app_config()
+
         yield Label(t("deepseek_analysis"), id="analysis-title")
-        yield Label(t("analysis_context"), id="analysis-prompt-label")
-        yield TextArea(self.prompt_context, id="analysis-prompt", read_only=True, soft_wrap=True)
+
+        with Horizontal(id="analysis-top"):
+            market_options = [("All Markets / Top 5", "")] + [(m[:60], m) for m in self.model.markets]
+            saved_market = self._selected_market or ""
+            yield Select(market_options, value=saved_market, id="analysis-market", allow_blank=False)
+
+        yield Label("System Prompt (editable):", classes="section-label")
+        saved_sys = cfg.get("system_prompt", t("system_prompt"))
+        yield TextArea(saved_sys, id="analysis-sysprompt", soft_wrap=True)
+
+        yield Label(t("analysis_context"), id="analysis-context-label")
+        ctx = self.model.to_analysis_context(market_filter=self._selected_market)
+        yield TextArea(ctx, id="analysis-context", read_only=False, soft_wrap=True)
+
         yield Label(t("analysis_result"), id="analysis-result-label")
-        yield RichLog(id="analysis-result", highlight=True, markup=False, wrap=True)
+        yield TextArea("", id="analysis-result", read_only=True, soft_wrap=True)
+
         with Horizontal(id="analysis-bar"):
             yield Label(t("settings_hint"))
             yield Button(t("run_analysis"), variant="primary", id="btn-run")
             yield Button(t("back"), variant="default", id="btn-back")
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id == "analysis-market":
+            market = str(event.value) if event.value else None
+            self._selected_market = market
+            ctx = self.model.to_analysis_context(market_filter=market)
+            try:
+                ta = self.query_one("#analysis-context", TextArea)
+                ta.text = ctx
+            except Exception:
+                pass
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-back":
@@ -115,18 +156,23 @@ class AnalysisScreen(Screen[None]):
         model = model_map.get(model_key, "deepseek-v4-flash")
         thinking = cfg.get("thinking", "medium")
 
-        prompt = self.query_one("#analysis-prompt", TextArea).text
+        sys_prompt = self.query_one("#analysis-sysprompt", TextArea).text.strip()
+        prompt = self.query_one("#analysis-context", TextArea).text.strip()
+
         if not key:
             self._show_error(t("api_key_missing"))
             return
-        if not prompt.strip():
+        if not prompt:
             self._show_error(t("no_prompt"))
             return
 
+        if sys_prompt != cfg.get("system_prompt", ""):
+            cfg["system_prompt"] = sys_prompt
+            save_app_config(cfg)
+
         self._busy = True
-        log = self.query_one("#analysis-result", RichLog)
-        log.clear()
-        log.write(t("call_api", model=model))
+        log = self.query_one("#analysis-result", TextArea)
+        log.text = t("call_api", model=model)
 
         btn = self.query_one("#btn-run", Button)
         btn.disabled = True
@@ -139,10 +185,7 @@ class AnalysisScreen(Screen[None]):
         body = {
             "model": model,
             "messages": [
-                {
-                    "role": "system",
-                    "content": t("system_prompt"),
-                },
+                {"role": "system", "content": sys_prompt if sys_prompt else t("system_prompt")},
                 {"role": "user", "content": prompt},
             ],
             "stream": True,
@@ -188,11 +231,10 @@ class AnalysisScreen(Screen[None]):
 
     def _poll(self) -> None:
         try:
-            log = self.query_one("#analysis-result", RichLog)
+            log = self.query_one("#analysis-result", TextArea)
             if self._chunks:
                 clean = _strip_markdown("".join(self._chunks))
-                log.clear()
-                log.write(clean)
+                log.text = clean
         except Exception:
             pass
 
@@ -210,16 +252,16 @@ class AnalysisScreen(Screen[None]):
         try:
             btn = self.query_one("#btn-run", Button)
             btn.disabled = False
-            btn.label = "Run Analysis"
+            btn.label = t("run_analysis")
         except Exception:
             pass
 
         try:
-            log = self.query_one("#analysis-result", RichLog)
+            log = self.query_one("#analysis-result", TextArea)
             if self._error:
-                log.write(f"\nError: {self._error}")
+                log.text += f"\n\nError: {self._error}"
             elif not self._chunks:
-                log.write(f"\n{t('no_response')}")
+                log.text = t("no_response")
         except Exception:
             pass
 
@@ -227,7 +269,7 @@ class AnalysisScreen(Screen[None]):
 
     def _show_error(self, msg: str) -> None:
         try:
-            log = self.query_one("#analysis-result", RichLog)
-            log.write(msg)
+            log = self.query_one("#analysis-result", TextArea)
+            log.text = msg
         except Exception:
             pass
