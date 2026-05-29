@@ -35,14 +35,10 @@ A Python Textual TUI dashboard for browsing and analyzing CFTC Commitments of Tr
 ## Quick Start
 
 ```powershell
-# Clone and setup
+# Clone and run
 git clone https://github.com/suxiaolei97/CFTC-COT-Report-Analyzer.git
 cd CFTC-COT-Report-Analyzer
-python -m venv venv
-venv\Scripts\activate
 pip install -r requirements.txt
-
-# Run
 python main.py
 ```
 
@@ -117,4 +113,4 @@ Requires 3+ years of data for reliable signals. Set Start Year to 2018 or earlie
 
 ## License
 
-MIT
+GPL-3.0
