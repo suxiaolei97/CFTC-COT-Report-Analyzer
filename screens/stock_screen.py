@@ -99,24 +99,27 @@ class StockScreen(Screen[None]):
                 return
             syms = sorted(quotes.keys())
             dt.clear(columns=True)
-            dt.add_columns(t("symbol"), t("stock_name"), t("stock_price"), t("stock_change"), "Spark")
+            dt.add_columns(t("symbol"), t("stock_name"), t("stock_price"), t("stock_change"), "PE", "Spark")
             for sym in syms:
                 q = quotes[sym]
                 price = q.get("price", 0)
                 chg_pct = q.get("change_pct", 0)
                 name = q.get("name", sym)
+                pe = q.get("pe", "")
                 if not price:
-                    dt.add_row(sym, Text(name[:20], style="dim"), Text("--", style="dim"),
-                              Text("--", style="dim"), "")
+                    dt.add_row(sym, Text(name[:18], style="dim"), Text("--", style="dim"),
+                              Text("--", style="dim"), Text(pe, style="dim"), "")
                     continue
-                p_text = Text(f"{price:.2f}", style="bold")
+                color_style = "bold green" if chg_pct >= 0 else "bold red"
+                sym_text = Text(sym, style=color_style)
+                p_text = Text(f"{price:.2f}", style=color_style)
                 if chg_pct > 0:
                     c_text = Text(f"+{chg_pct:.2f}%", style="bold green")
                 elif chg_pct < 0:
                     c_text = Text(f"{chg_pct:.2f}%", style="bold red")
                 else:
                     c_text = Text("0.00%", style="dim")
-                dt.add_row(sym, Text(name[:20], style=""), p_text, c_text, "")
+                dt.add_row(sym_text, Text(name[:18], style=""), p_text, c_text, Text(pe, style="dim"), "")
         except Exception:
             pass
 
@@ -126,29 +129,32 @@ class StockScreen(Screen[None]):
             query = inp.value.strip().upper()
         except Exception:
             return
-        if not query:
-            return
         try:
             dt = self.query_one("#stock-table", DataTable)
             quotes = self.model._quotes
             syms = sorted(quotes.keys())
             dt.clear(columns=True)
-            dt.add_columns(t("symbol"), t("stock_name"), t("stock_price"), t("stock_change"), "Spark")
+            dt.add_columns(t("symbol"), t("stock_name"), t("stock_price"), t("stock_change"), "PE", "Spark")
+            count = 0
             for sym in syms:
                 q = quotes[sym]
                 name = str(q.get("name", sym))
-                if query not in sym.upper() and query.upper() not in name.upper():
+                if query and query not in sym.upper() and query.upper() not in name.upper():
                     continue
+                count += 1
                 price = q.get("price", 0)
                 chg_pct = q.get("change_pct", 0)
+                pe = q.get("pe", "")
                 if not price:
-                    dt.add_row(sym, Text(name[:20], style="dim"), Text("--", style="dim"),
-                              Text("--", style="dim"), "")
+                    dt.add_row(sym, Text(name[:18], style="dim"), Text("--", style="dim"),
+                              Text("--", style="dim"), Text(pe, style="dim"), "")
                     continue
-                p_text = Text(f"{price:.2f}", style="bold")
+                color_style = "bold green" if chg_pct >= 0 else "bold red"
+                sym_text = Text(sym, style=color_style)
+                p_text = Text(f"{price:.2f}", style=color_style)
                 c_text = Text(f"{chg_pct:+.2f}%",
                              style="bold green" if chg_pct >= 0 else "bold red")
-                dt.add_row(sym, Text(name[:20], style=""), p_text, c_text, "")
+                dt.add_row(sym_text, Text(name[:18], style=""), p_text, c_text, Text(pe, style="dim"), "")
         except Exception:
             pass
 
