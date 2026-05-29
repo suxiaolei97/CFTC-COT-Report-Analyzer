@@ -138,16 +138,15 @@ class StockScreen(Screen[None]):
         except Exception:
             pass
 
-    def on_data_table_cell_selected(self, event: DataTable.CellSelected) -> None:
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         try:
             dt = self.query_one("#stock-table", DataTable)
-            row_key = event.cell_key.row_key
-            row = dt.get_row(row_key)
+            row = dt.get_row(event.row_key)
             sym = str(row[0])
+            if sym == self._selected:
+                return
             self._selected = sym
-            log = self.query_one("#stock-detail-log", RichLog)
-            log.clear()
-            log.write(f"[dim]Loading {sym}...[/]")
+            self._show_detail()
             self.model.fetch_chart(sym)
         except Exception:
             pass
@@ -179,7 +178,6 @@ class StockScreen(Screen[None]):
             l52 = q.get("low_52w", "")
             high = q.get("high", "")
             low = q.get("low", "")
-
             if pe:  log.write(f"PE: {pe}")
             if cap: log.write(f"Market Cap: {cap}")
             if h52 and l52: log.write(f"52W Range: {l52} - {h52}")
