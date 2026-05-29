@@ -6,6 +6,7 @@ from textual.containers import Container
 from textual.screen import Screen
 from textual.widgets import Static
 
+from i18n import t
 from models.cot_model import CotData
 
 _SPINNER = ["\u25CB", "\u25D4", "\u25D1", "\u25D5", "\u25CF"]
@@ -61,7 +62,7 @@ class LoadingScreen(Screen[CotData | None]):
     def compose(self) -> ComposeResult:
         yield Container(
             Static("[ CFTC COT TUI ]", id="loading-title"),
-            Static(f"Loading {self.report_type} ({self.start_year}-{self.year}) ...", id="loading-status"),
+            Static(f"{t('loading')} {self.report_type} ...", id="loading-status"),
             Static("", id="loading-spinner"),
             id="loading-container",
         )

@@ -9,6 +9,8 @@ import pandas as pd
 
 import cot_reports as cot
 
+from config import data_path, ensure_data_dir
+
 
 @dataclass
 class CotData:
@@ -64,18 +66,21 @@ class CotData:
         return self.COL_MARKET
 
     def load(self, status_callback: object = None) -> None:
+        ensure_data_dir()
         base = self.TXT_MAP.get(self.report_type, "annualof.txt")
         parts = base.rsplit(".", 1)
         cache_file = f"{parts[0]}_{self.start_year}_{self.year}.{parts[1]}" if self.start_year < self.year else base
+        cache_path = data_path(cache_file)
+        single_path = data_path(base)
 
-        if os.path.exists(cache_file):
+        if os.path.exists(cache_path):
             if status_callback:
                 status_callback(f"Reading cached {cache_file} ...")
-            self.df = pd.read_csv(cache_file, low_memory=False)
-        elif os.path.exists(base):
+            self.df = pd.read_csv(cache_path, low_memory=False)
+        elif os.path.exists(single_path):
             if status_callback:
                 status_callback(f"Reading cached {base} ...")
-            self.df = pd.read_csv(base, low_memory=False)
+            self.df = pd.read_csv(single_path, low_memory=False)
         else:
             if self.report_type not in self.TXT_MAP:
                 raise ValueError(f"Unknown report type: {self.report_type}. Valid: {list(self.TXT_MAP)}")
@@ -89,7 +94,7 @@ class CotData:
             if status_callback:
                 status_callback(f"Saving {cache_file} ...")
             try:
-                self.df.to_csv(cache_file, index=False)
+                self.df.to_csv(cache_path, index=False)
             except Exception:
                 pass
 

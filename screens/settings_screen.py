@@ -3,7 +3,8 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Button, Input, Label, RadioButton, RadioSet, Select
 
-from config import REPORT_TYPES, DEFAULT_REPORT_TYPE, DEFAULT_YEAR, DEFAULT_START_YEAR, load_app_config, save_app_config
+from config import REPORT_TYPES, DEFAULT_REPORT_TYPE, DEFAULT_YEAR, DEFAULT_START_YEAR, DEFAULT_LANG, load_app_config, save_app_config
+from i18n import t
 
 
 class SettingsScreen(Screen[dict]):
@@ -47,9 +48,9 @@ class SettingsScreen(Screen[dict]):
         cfg = load_app_config()
 
         with Vertical(id="settings-dialog"):
-            yield Label("Settings", id="settings-title")
+            yield Label(t("settings"), id="settings-title")
 
-            yield Label("API Key", classes="settings-section")
+            yield Label(t("api_key"), classes="settings-section")
             yield Input(
                 value=cfg.get("api_key", ""),
                 placeholder="sk-... DeepSeek API Key",
@@ -57,20 +58,20 @@ class SettingsScreen(Screen[dict]):
                 id="settings-api-key",
             )
 
-            yield Label("Model", classes="settings-section")
+            yield Label(t("model"), classes="settings-section")
             saved_model = cfg.get("model", "pro")
             if not isinstance(saved_model, str):
                 saved_model = "pro"
             with RadioSet(id="settings-model"):
-                yield RadioButton("DeepSeek V4 Flash", id="model-flash")
-                yield RadioButton("DeepSeek V4 Pro", id="model-pro")
+                yield RadioButton(t("deepseek_v4_flash"), id="model-flash")
+                yield RadioButton(t("deepseek_v4_pro"), id="model-pro")
 
-            yield Label("Thinking Intensity", classes="settings-section")
+            yield Label(t("thinking_intensity"), classes="settings-section")
             thinking_options = [
-                ("Disabled",    "disabled"),
-                ("Low",         "low"),
-                ("Medium",      "medium"),
-                ("High",        "high"),
+                (t("disabled"), "disabled"),
+                (t("low"),      "low"),
+                (t("medium"),   "medium"),
+                (t("high"),     "high"),
             ]
             saved_thinking = cfg.get("thinking", "medium")
             yield Select(
@@ -79,7 +80,7 @@ class SettingsScreen(Screen[dict]):
                 id="settings-thinking",
             )
 
-            yield Label("Default Report Type", classes="settings-section")
+            yield Label(t("default_report_type"), classes="settings-section")
             options = [(label, key) for key, label in REPORT_TYPES.items()]
             saved_type = cfg.get("report_type", DEFAULT_REPORT_TYPE)
             yield Select(
@@ -88,23 +89,28 @@ class SettingsScreen(Screen[dict]):
                 id="settings-report-type",
             )
 
-            yield Label("Default Year", classes="settings-section")
+            yield Label(t("default_year"), classes="settings-section")
             yield Input(
                 value=str(cfg.get("year", DEFAULT_YEAR)),
                 placeholder=str(DEFAULT_YEAR),
                 id="settings-year",
             )
 
-            yield Label("Start Year", classes="settings-section")
+            yield Label(t("start_year"), classes="settings-section")
             yield Input(
                 value=str(cfg.get("start_year", DEFAULT_START_YEAR)),
                 placeholder=str(DEFAULT_START_YEAR),
                 id="settings-start-year",
             )
 
+            yield Label("Language / 语言", classes="settings-section")
+            lang_options = [("中文", "zh"), ("English", "en")]
+            saved_lang = cfg.get("lang", "zh")
+            yield Select(lang_options, value=saved_lang, id="settings-lang")
+
             with Horizontal(id="settings-buttons"):
-                yield Button("Save", variant="primary", id="btn-save")
-                yield Button("Cancel", variant="default", id="btn-cancel")
+                yield Button(t("save"), variant="primary", id="btn-save")
+                yield Button(t("cancel"), variant="default", id="btn-cancel")
 
     def on_mount(self) -> None:
         cfg = load_app_config()
@@ -155,6 +161,8 @@ class SettingsScreen(Screen[dict]):
         if start_year < 2000:
             start_year = 2000
 
+        sel_lang = self.query_one("#settings-lang", Select)
+
         data = {
             "api_key": key,
             "model": model,
@@ -162,6 +170,7 @@ class SettingsScreen(Screen[dict]):
             "report_type": report_type,
             "year": year,
             "start_year": start_year,
+            "lang": str(sel_lang.value) if sel_lang.value else "zh",
         }
         save_app_config(data)
         self.dismiss(data)

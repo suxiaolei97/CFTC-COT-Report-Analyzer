@@ -4,6 +4,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Label, RadioButton, RadioSet
 
 from config import REPORT_TYPES
+from i18n import t
 
 
 class DatasetScreen(ModalScreen[str | None]):
@@ -55,11 +56,11 @@ class DatasetScreen(ModalScreen[str | None]):
             buttons.append(rb)
 
         with Vertical(id="dataset-dialog"):
-            yield Label("Dataset Report Type", id="dataset-title")
+            yield Label(t("select_dataset"), id="dataset-title")
             yield RadioSet(*buttons, id="dataset-radio")
             with Horizontal(id="dataset-buttons"):
                 yield Button("OK", variant="primary", id="ds-ok")
-                yield Button("Cancel", variant="default", id="ds-cancel")
+                yield Button(t("cancel"), variant="default", id="ds-cancel")
 
     def on_radio_set_changed(self, _: RadioSet.Changed) -> None:
         pass

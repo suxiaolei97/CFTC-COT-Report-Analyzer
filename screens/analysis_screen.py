@@ -10,6 +10,7 @@ from textual.screen import Screen
 from textual.widgets import Button, Label, RichLog, TextArea
 
 from config import load_app_config
+from i18n import t
 
 _RE_MD_BOLD = re.compile(r"\*\*(.+?)\*\*")
 _RE_MD_ITALIC = re.compile(r"\*(.+?)\*")
@@ -85,15 +86,15 @@ class AnalysisScreen(Screen[None]):
         self._executor: object = None
 
     def compose(self) -> ComposeResult:
-        yield Label("DeepSeek Analysis", id="analysis-title")
-        yield Label("Analysis Context (auto-generated):", id="analysis-prompt-label")
+        yield Label(t("deepseek_analysis"), id="analysis-title")
+        yield Label(t("analysis_context"), id="analysis-prompt-label")
         yield TextArea(self.prompt_context, id="analysis-prompt", read_only=True, soft_wrap=True)
-        yield Label("Analysis Result:", id="analysis-result-label")
+        yield Label(t("analysis_result"), id="analysis-result-label")
         yield RichLog(id="analysis-result", highlight=True, markup=False, wrap=True)
         with Horizontal(id="analysis-bar"):
-            yield Label("F12: Settings")
-            yield Button("Run Analysis", variant="primary", id="btn-run")
-            yield Button("Back", variant="default", id="btn-back")
+            yield Label(t("settings_hint"))
+            yield Button(t("run_analysis"), variant="primary", id="btn-run")
+            yield Button(t("back"), variant="default", id="btn-back")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-back":
@@ -116,20 +117,18 @@ class AnalysisScreen(Screen[None]):
 
         prompt = self.query_one("#analysis-prompt", TextArea).text
         if not key:
-            self._show_error("API Key missing. Press F12 to configure.")
+            self._show_error(t("api_key_missing"))
             return
         if not prompt.strip():
-            self._show_error("No prompt context. Load data first.")
+            self._show_error(t("no_prompt"))
             return
 
         self._busy = True
         log = self.query_one("#analysis-result", RichLog)
         log.clear()
-        log.write(f"Calling {model}...")
-
-        btn = self.query_one("#btn-run", Button)
-        btn.disabled = True
-        btn.label = "Running..."
+        log.write(t("call_api", model=model))
+        ...
+        btn.label = t("running")
 
         self._done = False
         self._error = None
@@ -140,7 +139,7 @@ class AnalysisScreen(Screen[None]):
             "messages": [
                 {
                     "role": "system",
-                    "content": "你是一名专业的 CFTC COT 报告分析师。使用中文，不用markdown。重点关注：1.非商业头寸趋势 2.商业对冲 3.持仓量变化 4.市场情绪",
+                    "content": t("system_prompt"),
                 },
                 {"role": "user", "content": prompt},
             ],
@@ -218,7 +217,7 @@ class AnalysisScreen(Screen[None]):
             if self._error:
                 log.write(f"\nError: {self._error}")
             elif not self._chunks:
-                log.write("\nNo response from API")
+                log.write(f"\n{t('no_response')}")
         except Exception:
             pass
 

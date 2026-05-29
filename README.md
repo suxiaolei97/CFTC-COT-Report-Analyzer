@@ -11,7 +11,7 @@ A Python Textual TUI dashboard for browsing and analyzing CFTC Commitments of Tr
 - **ASCII Sparklines** — Unicode block-element trend visualization of net positions
 - **DeepSeek AI Analysis (F4)** — Real-time streaming analysis with configurable model and thinking intensity
 - **Arrow-Key Navigation** — `← →` switch panels, `↑ ↓` navigate items
-- **Persistent Settings (F12)** — API key, model, thinking, report type, year range
+- **Persistent Settings (F12)** — API key, model, thinking, report type, year range, language
 
 ## Screenshot
 
@@ -72,6 +72,7 @@ Settings persist to `~/.cot_tui_config.json`:
 | Report Type | 7 types | legacy_futopt |
 | End Year | Year to load through | 2026 |
 | Start Year | Multi-year range start | 2020 |
+| Language | 中文 / English | 中文 |
 
 ## COT Index
 
@@ -99,7 +100,8 @@ Requires 3+ years of data for reliable signals. Set Start Year to 2018 or earlie
 ```
 ├── main.py                    # Entry point, HTTP timeout patch
 ├── app.py                     # App bindings, panel cycling, screen management
-├── config.py                  # Report types, colors, config persistence
+├── config.py                  # Report types, colors, data dir, config persistence
+├── i18n.py                    # Chinese/English translations
 ├── requirements.txt
 ├── models/
 │   └── cot_model.py           # Data model, column discovery, COT Index, sparklines

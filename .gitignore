@@ -24,19 +24,11 @@ env/
 Thumbs.db
 
 # CFTC cached data files (downloaded CSV/ZIP)
-annual.txt
-annualof.txt
-annualci.txt
-f_year.txt
-c_year.txt
-FinFutYY.txt
-FinComYY.txt
-annual_*.txt
-annualof_*.txt
-annualci_*.txt
-f_year_*.txt
-c_year_*.txt
-*.zip
+data/
+*.txt
+# Keep requirements.txt and README.md
+!requirements.txt
+!README.md
 
 # Debug logs (may contain API key traces)
 debug.log

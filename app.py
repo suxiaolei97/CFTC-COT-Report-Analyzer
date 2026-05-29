@@ -4,7 +4,8 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.widgets import Header
 
-from config import DEFAULT_REPORT_TYPE, DEFAULT_YEAR, DEFAULT_START_YEAR, REPORT_TYPES, load_app_config
+from config import DEFAULT_REPORT_TYPE, DEFAULT_YEAR, DEFAULT_START_YEAR, DEFAULT_LANG, REPORT_TYPES, load_app_config, data_path
+from i18n import t
 from models.cot_model import CotData
 from screens.analysis_screen import AnalysisScreen
 from screens.dataset_screen import DatasetScreen
@@ -15,14 +16,14 @@ from screens.settings_screen import SettingsScreen
 
 class CotTui(App[None]):
     BINDINGS = [
-        Binding("f2", "switch_dataset", "Switch Dataset"),
-        Binding("f4", "analysis", "DeepSeek Analysis"),
-        Binding("f5", "refresh", "Refresh"),
-        Binding("f12", "settings", "Settings"),
-        Binding("q", "quit", "Quit"),
-        Binding("escape", "focus_market_list", "Focus List"),
-        Binding("slash", "focus_search", "Search"),
-        Binding("tab", "cycle_panels", "Cycle Panels"),
+        Binding("f2", "switch_dataset", t("dataset")),
+        Binding("f4", "analysis", t("deepseek_analysis")),
+        Binding("f5", "refresh", t("refresh")),
+        Binding("f12", "settings", t("settings")),
+        Binding("q", "quit", t("quit")),
+        Binding("escape", "focus_market_list", t("focus_list")),
+        Binding("slash", "focus_search", t("search")),
+        Binding("tab", "cycle_panels", t("cycle_panels")),
     ]
 
     CSS = """
@@ -106,7 +107,7 @@ class CotTui(App[None]):
         base = CotData.TXT_MAP.get(self.report_type, "annualof.txt")
         parts = base.rsplit(".", 1)
         cache_file = f"{parts[0]}_{self.start_year}_{self.year}.{parts[1]}"
-        for f in [base, cache_file]:
+        for f in [data_path(base), data_path(cache_file)]:
             if os.path.exists(f):
                 os.remove(f)
         self.model = CotData(report_type=self.report_type, year=self.year, start_year=self.start_year)

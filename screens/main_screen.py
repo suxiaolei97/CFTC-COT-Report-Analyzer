@@ -15,6 +15,7 @@ from textual.widgets import (
 from rich.text import Text
 
 from config import REPORT_TYPES, load_app_config
+from i18n import t
 
 
 class MainScreen(Screen[None]):
@@ -144,7 +145,7 @@ class MainScreen(Screen[None]):
                     f"Latest: {self.model.latest_date}  |  Markets: {self.model.market_count}",
                     id="date-label",
                 )
-                yield Input(placeholder="Search markets...", id="search-input")
+                yield Input(placeholder=t("search_placeholder"), id="search-input")
             yield ListView(*self._build_items(), id="market-list")
             yield Static(
                 f"Showing {len(self._all_markets)} markets", id="market-count"
@@ -152,19 +153,19 @@ class MainScreen(Screen[None]):
 
         # --- CENTER ---
         with Container(id="center-panel"):
-            yield Label("Data Table  [select a market]", id="center-title")
+            yield Label(t("data_table_hint"), id="center-title")
             yield DataTable(id="data-table")
 
         # --- RIGHT ---
         with Container(id="right-panel"):
-            yield Label("Market Detail", id="detail-title")
+            yield Label(t("market_detail"), id="detail-title")
             yield RichLog(id="detail-log", highlight=True, markup=True)
             cfg = load_app_config()
             model_raw = cfg.get("model", "pro")
             model = model_raw.upper() if isinstance(model_raw, str) else "PRO"
             thinking = cfg.get("thinking", "medium")
             yield Static(
-                f"[bold #7aafff]F2[/] Dataset  [bold #7aafff]F4[/] Analysis  [bold #7aafff]F5[/] Refresh  [bold #7aafff]F12[/] Settings  [bold #7aafff]q[/] Quit  |  {model} \u00b7 {thinking}",
+                t("shortcut_hint") + f"  |  {model} \u00b7 {thinking}",
                 id="detail-hint",
             )
 
@@ -256,7 +257,7 @@ class MainScreen(Screen[None]):
             dt.add_row(*vals)
 
         self.query_one("#center-title", Label).update(
-            f"[{market}]  ({len(rows)} records)"
+            f"[{market}]  ({len(rows)} {t('records')})"
         )
 
     def _update_detail(self, market: str) -> None:
@@ -264,13 +265,13 @@ class MainScreen(Screen[None]):
         log.clear()
         detail = self.model.get_market_detail(market)
         if not detail:
-            log.write("[dim]No detail available for this market.[/]")
+            log.write(f"[dim]{t('no_detail')}[/]")
             return
 
         oi = detail.get("oi", 0)
         oi_change = detail.get("oi_change", 0)
         log.write(f"[bold]{detail['market']}[/]")
-        log.write(f"[dim]Date: {detail['date']}[/]")
+        log.write(f"[dim]{t('date')}: {detail['date']}[/]")
         log.write("")
 
         cot_idx = self.model.get_cot_index(market)
@@ -279,35 +280,32 @@ class MainScreen(Screen[None]):
             log.write(f"[dim]{spark}[/]")
         if cot_idx is not None:
             if cot_idx >= 80:
-                idx_color = "bold red"
-                idx_label = "Extreme Long"
+                idx_label = t("cot_index_extreme_long")
             elif cot_idx <= 20:
-                idx_color = "bold green"
-                idx_label = "Extreme Short"
+                idx_label = t("cot_index_extreme_short")
             else:
-                idx_color = "yellow"
-                idx_label = "Neutral"
-            log.write(f"COT Index: [{idx_color}]{cot_idx:.0f}[/]  [{idx_color}]{idx_label}[/]")
-        log.write(f"Open Interest: [bold]{oi:,.0f}[/]")
+                idx_label = t("cot_index_neutral")
+            log.write(f"{t('cot_index')}: [{idx_color}]{cot_idx:.0f}[/]  [{idx_color}]{idx_label}[/]")
+        log.write(f"{t('open_interest')}: [bold]{oi:,.0f}[/]")
         oi_sign = "+" if oi_change >= 0 else ""
-        log.write(f"OI Change:     [{'green' if oi_change >= 0 else 'red'}]{oi_sign}{oi_change:,.0f}[/]")
+        log.write(f"{t('oi_change')}:     [{'green' if oi_change >= 0 else 'red'}]{oi_sign}{oi_change:,.0f}[/]")
         log.write("")
 
         for cat_label, cat_data in detail.get("categories", {}).items():
             net = cat_data["net"]
             log.write(f"[bold underline]{cat_label}[/]")
-            log.write(f"  Long:   {cat_data['long']:>10,.0f}")
-            log.write(f"  Short:  {cat_data['short']:>10,.0f}")
+            log.write(f"  {t('long')}:   {cat_data['long']:>10,.0f}")
+            log.write(f"  {t('short')}:  {cat_data['short']:>10,.0f}")
             sign = "+" if net >= 0 else ""
             color = "green" if net >= 0 else "red"
-            log.write(f"  Net:    [{color}]{sign}{net:>9,.0f}[/]")
+            log.write(f"  {t('net')}:    [{color}]{sign}{net:>9,.0f}[/]")
             spread = cat_data.get("spread", 0)
             if spread:
-                log.write(f"  Spread: {spread:>10,.0f}")
+                log.write(f"  {t('spread')}: {spread:>10,.0f}")
             chg_l = cat_data.get("change_long", 0)
             chg_s = cat_data.get("change_short", 0)
             if chg_l or chg_s:
-                log.write(f"  [\u0394] Long: {chg_l:+,.0f}   Short: {chg_s:+,.0f}")
+                log.write(f"  [Δ] {t('long')}: {chg_l:+,.0f}   {t('short')}: {chg_s:+,.0f}")
             log.write("")
 
     def refresh_data(self) -> None:
@@ -325,7 +323,7 @@ class MainScreen(Screen[None]):
         model = model_raw.upper() if isinstance(model_raw, str) else "PRO"
         thinking = cfg.get("thinking", "medium")
         self.query_one("#detail-hint", Static).update(
-            f"[bold #7aafff]F2[/] Dataset  [bold #7aafff]F4[/] Analysis  [bold #7aafff]F5[/] Refresh  [bold #7aafff]F12[/] Settings  [bold #7aafff]q[/] Quit  |  {model} \u00b7 {thinking}",
+            t("shortcut_hint") + f"  |  {model} \u00b7 {thinking}",
         )
         if self._selected_market:
             self._update_center(self._selected_market)

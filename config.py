@@ -14,6 +14,7 @@ REPORT_TYPES = {
 DEFAULT_REPORT_TYPE = "legacy_futopt"
 DEFAULT_YEAR = 2026
 DEFAULT_START_YEAR = 2020
+DEFAULT_LANG = "zh"
 
 COLORS = {
     "bg": "#0f0f1a",
@@ -33,6 +34,17 @@ COLORS = {
 
 _CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".cot_tui_config.json")
 
+_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(_PROJECT_ROOT, "data")
+
+
+def data_path(filename: str) -> str:
+    return os.path.join(DATA_DIR, filename)
+
+
+def ensure_data_dir() -> None:
+    os.makedirs(DATA_DIR, exist_ok=True)
+
 
 def load_app_config() -> dict:
     try:
@@ -47,6 +59,6 @@ def load_app_config() -> dict:
 def save_app_config(data: dict) -> None:
     try:
         with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f)
+            json.dump(data, f, indent=2)
     except Exception:
         pass
