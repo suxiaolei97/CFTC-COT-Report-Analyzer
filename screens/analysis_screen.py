@@ -8,9 +8,9 @@ import httpx
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, Label, RichLog, TextArea, Select
+from textual.widgets import Button, Input, Label, RichLog, TextArea, Select
 
-from config import load_app_config, save_app_config
+from config import load_app_config, save_app_config, DEFAULT_TOP_N
 from i18n import t
 from models.cot_model import CotData
 
@@ -106,7 +106,8 @@ class AnalysisScreen(Screen[None]):
         yield Label(t("deepseek_analysis"), id="analysis-title")
 
         with Horizontal(id="analysis-top"):
-            market_options = [("All Markets / Top 5", "")] + [(m[:60], m) for m in self.model.markets]
+            yield Input(placeholder=t("type_to_filter"), id="analysis-market-search")
+            market_options = [(t("all_markets_top_n"), "")] + [(m[:60], m) for m in self.model.markets]
             saved_market = self._selected_market or ""
             yield Select(market_options, value=saved_market, id="analysis-market", allow_blank=False)
 
@@ -115,7 +116,8 @@ class AnalysisScreen(Screen[None]):
         yield TextArea(saved_sys, id="analysis-sysprompt", soft_wrap=True)
 
         yield Label(t("analysis_context"), id="analysis-context-label")
-        ctx = self.model.to_analysis_context(market_filter=self._selected_market)
+        top_n = cfg.get("top_n", DEFAULT_TOP_N)
+        ctx = self.model.to_analysis_context(market_filter=self._selected_market, top_n=top_n)
         yield TextArea(ctx, id="analysis-context", read_only=False, soft_wrap=True)
 
         yield Label(t("analysis_result"), id="analysis-result-label")
@@ -126,11 +128,26 @@ class AnalysisScreen(Screen[None]):
             yield Button(t("run_analysis"), variant="primary", id="btn-run")
             yield Button(t("back"), variant="default", id="btn-back")
 
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "analysis-market-search":
+            query = event.value.strip().lower()
+            try:
+                sel = self.query_one("#analysis-market", Select)
+                markets = self.model.markets
+                if query:
+                    markets = [m for m in markets if query in m.lower()]
+                options = [(t("all_markets_top_n"), "")] + [(m[:60], m) for m in markets]
+                sel.set_options(options)
+            except Exception:
+                pass
+
     def on_select_changed(self, event: Select.Changed) -> None:
         if event.select.id == "analysis-market":
             market = str(event.value) if event.value else None
             self._selected_market = market
-            ctx = self.model.to_analysis_context(market_filter=market)
+            cfg = load_app_config()
+            top_n = cfg.get("top_n", DEFAULT_TOP_N)
+            ctx = self.model.to_analysis_context(market_filter=market, top_n=top_n)
             try:
                 ta = self.query_one("#analysis-context", TextArea)
                 ta.text = ctx

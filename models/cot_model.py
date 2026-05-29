@@ -252,7 +252,7 @@ class CotData:
             }
         return detail
 
-    def to_analysis_context(self, market_filter: str | None = None) -> str:
+    def to_analysis_context(self, market_filter: str | None = None, top_n: int = 5) -> str:
         """Build a text prompt for DeepSeek analysis from current data."""
         lines = [
             f"CFTC {self.report_type} report, year {self.year}",
@@ -287,18 +287,18 @@ class CotData:
             sub_copy = sub.copy()
             sub_copy["__nc_net"] = (sub_copy[nc_long].fillna(0).astype(float) -
                                      sub_copy[nc_short].fillna(0).astype(float))
-            top_long = sub_copy.nlargest(5, "__nc_net")
-            top_short = sub_copy.nsmallest(5, "__nc_net")
+            top_long = sub_copy.nlargest(top_n, "__nc_net")
+            top_short = sub_copy.nsmallest(top_n, "__nc_net")
 
             lines.append("")
-            lines.append("Top 5 Non-commercial Net Long (全部市场):")
+            lines.append(f"Top {top_n} Non-commercial Net Long (全部市场):")
             for _, r in top_long.iterrows():
                 lines.append(
                     f"  {r[self._col_market]}: 多头 {self.safe_val(r, nc_long)}  "
                     f"空头 {self.safe_val(r, nc_short)}  净 {self.safe_val(r, nc_long) - self.safe_val(r, nc_short)}"
                 )
             lines.append("")
-            lines.append("Top 5 Non-commercial Net Short (全部市场):")
+            lines.append(f"Top {top_n} Non-commercial Net Short (全部市场):")
             for _, r in top_short.iterrows():
                 lines.append(
                     f"  {r[self._col_market]}: 多头 {self.safe_val(r, nc_long)}  "

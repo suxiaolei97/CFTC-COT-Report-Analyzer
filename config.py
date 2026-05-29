@@ -15,6 +15,7 @@ DEFAULT_REPORT_TYPE = "legacy_futopt"
 DEFAULT_YEAR = 2026
 DEFAULT_START_YEAR = 2020
 DEFAULT_LANG = "zh"
+DEFAULT_TOP_N = 5
 
 COLORS = {
     "bg": "#0f0f1a",

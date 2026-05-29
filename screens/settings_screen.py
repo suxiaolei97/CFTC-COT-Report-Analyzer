@@ -3,7 +3,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Button, Input, Label, RadioButton, RadioSet, Select
 
-from config import REPORT_TYPES, DEFAULT_REPORT_TYPE, DEFAULT_YEAR, DEFAULT_START_YEAR, DEFAULT_LANG, load_app_config, save_app_config
+from config import REPORT_TYPES, DEFAULT_REPORT_TYPE, DEFAULT_YEAR, DEFAULT_START_YEAR, DEFAULT_LANG, DEFAULT_TOP_N, load_app_config, save_app_config
 from i18n import t, set_lang
 
 
@@ -110,6 +110,13 @@ class SettingsScreen(Screen[dict]):
                 saved_lang = "zh"
             yield Select(lang_options, value=saved_lang, id="settings-lang")
 
+            yield Label(t("top_n"), classes="settings-section")
+            yield Input(
+                value=str(cfg.get("top_n", DEFAULT_TOP_N)),
+                placeholder=str(DEFAULT_TOP_N),
+                id="settings-top-n",
+            )
+
             with Horizontal(id="settings-buttons"):
                 yield Button(t("save"), variant="primary", id="btn-save")
                 yield Button(t("cancel"), variant="default", id="btn-cancel")
@@ -163,6 +170,14 @@ class SettingsScreen(Screen[dict]):
         if start_year < 2000:
             start_year = 2000
 
+        top_n_str = self.query_one("#settings-top-n", Input).value.strip()
+        try:
+            top_n = int(top_n_str)
+        except ValueError:
+            top_n = DEFAULT_TOP_N
+        if top_n < 1:
+            top_n = DEFAULT_TOP_N
+
         sel_lang = self.query_one("#settings-lang", Select)
 
         data = {
@@ -172,6 +187,7 @@ class SettingsScreen(Screen[dict]):
             "report_type": report_type,
             "year": year,
             "start_year": start_year,
+            "top_n": top_n,
             "lang": str(sel_lang.value) if sel_lang.value else "zh",
         }
         save_app_config(data)
