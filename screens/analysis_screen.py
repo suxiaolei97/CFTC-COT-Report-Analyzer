@@ -6,9 +6,9 @@ from concurrent.futures import ThreadPoolExecutor
 import httpx
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal
 from textual.screen import Screen
-from textual.widgets import Button, Input, Label, RichLog, TextArea, Select
+from textual.widgets import Button, Input, Label, ListItem, ListView, RichLog, TextArea
 
 from config import load_app_config, save_app_config, DEFAULT_TOP_N
 from i18n import t
@@ -53,6 +53,23 @@ class AnalysisScreen(Screen[None]):
     }
     #analysis-market {
         width: 60;
+    }
+    #analysis-market-search {
+        width: 100%;
+        margin-bottom: 1;
+    }
+    #analysis-market-list {
+        height: 15;
+        border: solid #2a2a5a;
+        margin-bottom: 1;
+    }
+    #analysis-market-list > ListItem {
+        color: #c0c0e0;
+        padding: 0 1;
+    }
+    #analysis-market-list > ListItem.-highlight {
+        background: #2a2a4a;
+        color: #ffffff;
     }
     #analysis-context-label {
         color: #606080;
@@ -105,11 +122,8 @@ class AnalysisScreen(Screen[None]):
 
         yield Label(t("deepseek_analysis"), id="analysis-title")
 
-        with Horizontal(id="analysis-top"):
-            yield Input(placeholder=t("type_to_filter"), id="analysis-market-search")
-            market_options = [(t("all_markets_top_n"), "")] + [(m[:60], m) for m in self.model.markets]
-            saved_market = self._selected_market or ""
-            yield Select(market_options, value=saved_market, id="analysis-market", allow_blank=False)
+        yield Input(placeholder=t("type_to_filter"), id="analysis-market-search")
+        yield ListView(*self._build_market_items(), id="analysis-market-list")
 
         yield Label("System Prompt (editable):", classes="section-label")
         saved_sys = cfg.get("system_prompt", t("system_prompt"))
@@ -128,31 +142,37 @@ class AnalysisScreen(Screen[None]):
             yield Button(t("run_analysis"), variant="primary", id="btn-run")
             yield Button(t("back"), variant="default", id="btn-back")
 
+    def _build_market_items(self, query: str = "") -> list[ListItem]:
+        markets = self.model.markets
+        if query:
+            q = query.lower()
+            markets = [m for m in markets if q in m.lower()]
+        items = [ListItem(Label(t("all_markets_top_n")), name="")] if not query else []
+        items += [ListItem(Label(m), name=m) for m in markets]
+        return items
+
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "analysis-market-search":
             query = event.value.strip().lower()
+            items = self._build_market_items(query)
             try:
-                sel = self.query_one("#analysis-market", Select)
-                markets = self.model.markets
-                if query:
-                    markets = [m for m in markets if query in m.lower()]
-                options = [(t("all_markets_top_n"), "")] + [(m[:60], m) for m in markets]
-                sel.set_options(options)
+                lv = self.query_one("#analysis-market-list", ListView)
+                lv.clear()
+                lv.extend(items)
             except Exception:
                 pass
 
-    def on_select_changed(self, event: Select.Changed) -> None:
-        if event.select.id == "analysis-market":
-            market = str(event.value) if event.value else None
-            self._selected_market = market
-            cfg = load_app_config()
-            top_n = cfg.get("top_n", DEFAULT_TOP_N)
-            ctx = self.model.to_analysis_context(market_filter=market, top_n=top_n)
-            try:
-                ta = self.query_one("#analysis-context", TextArea)
-                ta.text = ctx
-            except Exception:
-                pass
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        market = event.item.name if event.item.name else None
+        self._selected_market = market
+        cfg = load_app_config()
+        top_n = cfg.get("top_n", DEFAULT_TOP_N)
+        ctx = self.model.to_analysis_context(market_filter=market, top_n=top_n)
+        try:
+            ta = self.query_one("#analysis-context", TextArea)
+            ta.text = ctx
+        except Exception:
+            pass
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-back":
