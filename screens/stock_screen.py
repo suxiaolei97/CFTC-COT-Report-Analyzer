@@ -150,6 +150,16 @@ class StockScreen(Screen[None]):
             self.model._quotes_ready = False
         if self.model._info_ready or self.model._chart_ready:
             self._update_detail()
+            self.model._info_ready = False
+            self.model._chart_ready = False
+        else:
+            try:
+                dt = self.query_one("#stock-table", DataTable)
+                if dt.row_count == 0:
+                    dt.add_columns("Status")
+                    dt.add_row("Loading stock data...")
+            except Exception:
+                pass
 
     def _update_table(self) -> None:
         try:
