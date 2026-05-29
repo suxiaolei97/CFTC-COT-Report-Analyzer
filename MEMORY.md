@@ -18,20 +18,19 @@ Python Textual TUI 数据大屏，结构化浏览 CFTC Commitments of Traders (C
 ## Project Structure
 
 ```
-COT report/
-├── main.py                      # 入口 — CWD固定, socket超时, requests monkey-patch
-├── app.py                       # App — 按键分发, Tab/←→面板循环, 视图切换, start_year管理
-├── config.py                    # 报告类型, 颜色主题, data/目录, 配置持久化
-├── i18n.py                      # 中英文双语翻译 (动态热切换)
+├── main.py                     # 入口、CWD固定、HTTP超时patch
+├── app.py                      # 按键分发、面板循环、视图管理
+├── config.py                   # 报告类型、颜色主题、data/目录、配置持久化
+├── i18n.py                     # 中英双语 (±70条)、动态热切换
 ├── requirements.txt
 ├── models/
-│   └── cot_model.py             # CotData — 动态列名发现, 多年合并, 本地缓存, COT Index, sparkline
+│   └── cot_model.py            # CotData — 三套分类体系、动态列发现、多年合并、COT Index、sparkline
 └── screens/
-    ├── loading_screen.py        # 旋转 spinner + ThreadPoolExecutor + 主线程轮询
-    ├── main_screen.py           # 三栏: 市场列表 | DataTable着色 | 详情(sparkline+COT Index+持仓)
-    ├── dataset_screen.py        # F2 — 切换报告类型
-    ├── analysis_screen.py       # F4 — SSE流式分析 + markdown剥离 + 防重复调用
-    └── settings_screen.py       # F12 — API Key/模型/思考强度/报告类型/年份范围/语言
+    ├── loading_screen.py       # Spinner + ThreadPoolExecutor + 轮询
+    ├── main_screen.py          # 三栏：列表|DataTable着色|详情(sparkline+COT Index)
+    ├── dataset_screen.py       # F2 — 切换报告类型
+    ├── analysis_screen.py      # F4 — 市场列表+搜索、可编辑提示词、SSE流式分析
+    └── settings_screen.py      # F12 — API Key/模型/思考/报告类型/年份/Top N/语言
 ```
 
 ## How to Run
@@ -43,119 +42,81 @@ pip install -r requirements.txt
 python main.py
 ```
 
-首次运行从 CFTC 下载数据到 `data/` 目录。后续读缓存（~0.3s）。F5 删缓存强制重载。
-
-## Data Source
-
-`cot_reports` library. Default: `legacy_futopt`, year range 2018-2026.
-
-7 种报告类型 (F2): legacy_fut / legacy_futopt / supplemental_futopt / disaggregated_fut / disaggregated_futopt / TFF_fut / TFF_futopt
+首次从 CFTC 下载到 `data/`，后续读缓存（~0.3s）。F5 强制重载。
 
 ## Key Bindings
 
 | 键 | 功能 |
 |-----|------|
-| `↑` `↓` | 市场列表内导航/高亮 |
-| `Enter` | 选中市场 → 更新数据表 + 详情 |
-| `←` `→` | 面板切换: 列表 ↔ 数据表 ↔ 详情 |
-| `Tab` | 同上（备用） |
-| `/` | 聚焦搜索栏 |
-| `Esc` | 清空搜索 / 聚焦列表 |
+| `↑` `↓` | 列表导航 |
+| `Enter` | 选中市场 |
+| `←` `→` | 面板切换 |
+| `Tab` | 同上(备用) |
+| `/` | 搜索市场 |
+| `Esc` | 清空搜索 |
 | `F2` | 切换报告类型 |
-| `F4` | DeepSeek 流式分析 |
-| `F5` | 删除缓存 + 重新下载 |
-| `F12` | 全局设置 |
+| `F4` | DeepSeek 分析 |
+| `F5` | 强制刷新 |
+| `F12` | 设置 |
 | `q` | 退出 |
 
 ## Settings (F12)
 
-配置保存在 `~/.cot_tui_config.json`。
+| 项 | 说明 | 默认 |
+|----|------|------|
+| API Key | DeepSeek 密钥 | — |
+| Model | V4 Flash / Pro | Pro |
+| Thinking | Disabled/Low/Medium/High | Medium |
+| Report Type | 7种 | legacy_futopt |
+| End Year | 截止年 | 2026 |
+| Start Year | 起始年 | 2018 |
+| Top N | 排行榜数量 | 5 |
+| Language | 中文/English | 中文 |
 
-| 设置项 | 说明 | 默认值 |
-|--------|------|--------|
-| API Key | DeepSeek API 密钥 | — |
-| Model | V4 Flash / V4 Pro | Pro |
-| Thinking Intensity | Disabled / Low / Medium / High | Medium |
-| Default Report Type | 7 种可选 | legacy_futopt |
-| End Year | 截止年份 | 2026 |
-| Start Year | 起始年份（多年数据） | 2018 |
-| Language | 中文 / English | 中文 |
+## COT Report Category Systems
 
-## Multi-Year Data
+三种报告类型体系自动检测：
 
-从 Start Year 到 End Year 逐年下载并合并到 `data/{report}_{start}_{end}.txt`。多年数据使 COT Index 和 sparkline 准确度大幅提升。
+| Legacy | Disaggregated | TFF |
+|--------|--------------|-----|
+| 非商业 Non-Commercial | 生产商 Producer/Merchant | 交易商 Dealer |
+| 商业 Commercial | 掉期商 Swap Dealers | 资产管理 Asset Manager |
+| 非报告 Non-Reportable | 管理基金 Managed Money | 杠杆基金 Leveraged |
+| 报告合计 Total Reportable | 其他报告 Other Rept | 其他报告 Other Rept |
+| — | 非报告 Non-Rept | 非报告 Non-Rept |
+| — | 报告合计 Total Rept | 报告合计 Total Rept |
 
 ## DeepSeek Analysis (F4)
 
-- **流式输出**: SSE 逐 token, 0.15s 轮询刷新 RichLog
-- **Markdown 剥离**: `##`, `**`, `*` 自动移除
-- **防重复调用**: `_busy` 锁防止点击多次
-- **线程安全**: executor 完成后 `shutdown`, timer 使用后 `stop`
-- **System Prompt**: 通过 i18n 动态切换中英文
+- **市场选择**：可搜索 ListView + 输入框，实时过滤 500+ 市场
+- **System Prompt**：可编辑 TextArea，自动保存到配置
+- **分析上下文**：可编辑，切换市场自动更新
+- **结果**：TextArea(read_only)，可选中复制
+- **流式输出**：SSE 逐 token，0.15s 刷新
+- **防重复**：`_busy` 锁
 
-## Data Model
+## COT Index
 
-### Dynamic Column Detection
-`_find_date_col()` / `_find_market_col()` 按正则自动匹配，兼容所有 7 种报告类型的列名差异。
-
-### COT Index
-0-100 指示当前非商业净头寸在历史范围中的位置:
-- `> 80`: 极端做多, `< 20`: 极端做空, `20-80`: 中性
-
-### ASCII Sparkline
-Unicode 方块字符 `▁▂▃▄▅▆▇█` 绘制净头寸历史走势。
-
-### DataTable 着色
-净头寸正值绿色加粗, 负值红色加粗, 零值灰色。
-
-## i18n
-
-`i18n.py` 包含 70+ 条中英对照。使用 `t(key)` 获取翻译，`set_lang("en"/"zh")` 热切换。F12 切换语言后立即生效（刷新主界面所有标签）。
-
-## Loading Screen Architecture
-
-工作线程只写简单属性 (`_status`, `_result`, `_error`, `_complete`), 主线程 `set_interval` 轮询。excutor 完成后自动 shutdown。
+0-100，当前净头寸在历史范围中的位置。`>80` 极端做多，`<20` 极端做空。需 3+ 年数据才有参考意义。
 
 ## Textual 8.x Compatibility
 
-| 旧 API | 8.x 替代 |
-|--------|----------|
+| 旧 | 新 |
+|----|-----|
 | `Label.renderable` | `Label.render().plain` |
-| `ListItem.query_one(Label)` | `ListItem(name=xxx)` → `event.item.name` |
-| `ListView.preserve_focus()` | 直接 `clear()` + `extend()` |
+| `ListView.preserve_focus()` | `clear()`+`extend()` |
 | `Screen.call_from_thread()` | 轮询模式 |
 | `RadioButton(value=key)` | `id="prefix-key"` |
-| `self._running` | 避用, 改 `self._busy` |
-| Screen CSS 需 `layout: vertical` | 否则鼠标点击 crash |
+| `\W` in regex | `[\W_]` (underscore is `\w` in Python) |
+| Screen 无 layout | 需 `layout: vertical` |
 
-## Color Theme
+## Future
 
-```python
-bg: "#0f0f1a"  panel_bg: "#16162a"  border: "#2a2a5a"
-text: "#c0c0e0"  accent: "#5a8ad4"  green: "#4ee04e"
-red: "#e05050"  yellow: "#e0c040"  cyan: "#40c0c0"
-```
+### Phase 2
+- [ ] 自选书签、多市场对比、列头排序、分类过滤、日期导航
 
----
+### Phase 3
+- [ ] 批量分析、自定义模板、分析历史、多轮对话
 
-## Future Enhancements
-
-### Phase 2 — 交互增强
-- [ ] 自选市场书签
-- [ ] 多市场对比
-- [ ] 数据排序（点击列头）
-- [ ] 市场分类过滤
-- [ ] 历史日期导航
-
-### Phase 3 — AI 增强
-- [ ] 批量分析
-- [ ] 自定义分析模板
-- [ ] 分析历史记录
-- [ ] 多轮对话
-
-### Phase 4 — 体验优化
-- [ ] 主题切换
-- [ ] 快捷键自定义
-- [ ] 数据导出 CSV/Excel
-- [ ] 自动刷新
-- [ ] SQLite 持久化
+### Phase 4
+- [ ] 主题切换、快捷键自定义、CSV导出、自动刷新、SQLite
