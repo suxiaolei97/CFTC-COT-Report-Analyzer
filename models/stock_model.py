@@ -24,24 +24,49 @@ MAJOR_STOCKS = [
 
 class StockModel:
     def __init__(self) -> None:
-        self._executor = ThreadPoolExecutor(max_workers=4)
-        self._quotes_ready: bool = False
+        self._executor = ThreadPoolExecutor(max_workers=6)
         self._quotes: dict[str, dict] = {}
+        self._quotes_updated: bool = False
         self._chart_ready: bool = False
         self._chart_prices: list[float] = []
-        self._info_ready: bool = False
-        self._info: dict[str, Any] = {}
 
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False)
 
     def fetch_all(self, symbols: list[str] | None = None) -> None:
-        self._quotes_ready = False
+        self._quotes = {}
         self._executor.submit(self._do_fetch_all, list(symbols or MAJOR_STOCKS))
 
     def fetch_chart(self, symbol: str) -> None:
         self._chart_ready = False
         self._executor.submit(self._do_fetch_chart, symbol)
+
+    def dynamic_fetch(self, symbol: str) -> None:
+        self._executor.submit(self._do_dynamic_fetch, symbol)
+
+    def _fetch_quote(self, sym: str) -> dict:
+        url = f"https://api.nasdaq.com/api/quote/{sym}/info?assetclass=stocks"
+        default = {"symbol": sym, "price": 0, "change": 0, "change_pct": 0, "name": sym, "nodata": True}
+        try:
+            hdr = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+            r = requests.get(url, headers=hdr, timeout=6)
+            if r.status_code != 200:
+                return default
+            d = r.json()
+            data = d.get("data", {}) or {}
+            primary = data.get("primaryData", {}) or {}
+            ps = primary.get("lastSalePrice", "").replace("$", "").replace(",", "")
+            cs = primary.get("netChange", "").replace("$", "").replace(",", "")
+            pcts = primary.get("percentageChange", "").replace("%", "")
+            price = float(ps) if ps and ps != "N/A" else 0
+            chg = float(cs) if cs and cs != "N/A" else 0
+            chg_pct = float(pcts) if pcts and pcts != "N/A" else 0
+            summary = data.get("summaryData", {}) or {}
+            pe = (summary.get("P/E", {}) or {}).get("value", "")
+            return {"symbol": sym, "price": price, "change": chg, "change_pct": chg_pct,
+                    "name": data.get("companyName", sym) or sym, "pe": pe}
+        except Exception:
+            return default
 
     def _do_fetch_all(self, symbols: list[str]) -> None:
         result = {}
@@ -77,7 +102,11 @@ class StockModel:
             except Exception:
                 pass
         self._quotes = result
-        self._quotes_ready = True
+        self._quotes_updated = True
+
+    def _do_dynamic_fetch(self, symbol: str) -> None:
+        self._quotes[symbol] = self._fetch_quote(symbol)
+        self._quotes_updated = True
 
     def _do_fetch_chart(self, symbol: str) -> None:
         prices: list[float] = []
@@ -85,7 +114,7 @@ class StockModel:
         try:
             r = requests.get(
                 f"https://api.nasdaq.com/api/quote/{symbol}/chart?assetclass=stocks&fromdate=2026-04-01&todate=2026-05-31",
-                headers=hdr, timeout=8)
+                headers=hdr, timeout=10)
             if r.status_code == 200:
                 d = r.json()
                 chart = (d.get("data", {}) or {}).get("chart", []) or []

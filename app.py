@@ -106,6 +106,12 @@ class CotTui(App[None]):
         stock_screen = self.get_current_stock()
         if stock_screen:
             stock_screen.dismiss()
+            main = self.get_current_main()
+            if main is None and self.model is None:
+                self.push_screen(
+                    LoadingScreen(report_type=self.report_type, year=self.year, start_year=self.start_year),
+                    callback=self._on_data_loaded,
+                )
             return
         main = self.get_current_main()
         stock = StockScreen()

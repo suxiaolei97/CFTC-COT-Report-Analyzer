@@ -6,7 +6,7 @@ from textual.widgets import DataTable, Input, Label, RichLog, Static
 from rich.text import Text
 
 from i18n import t
-from models.stock_model import StockModel
+from models.stock_model import StockModel, MAJOR_STOCKS
 
 
 class StockScreen(Screen[None]):
@@ -68,28 +68,42 @@ class StockScreen(Screen[None]):
             yield Input(placeholder=f"{t('search')} (Symbol / Name)", id="stock-search")
             yield Static("Loading...", id="stock-count")
         with Container(id="stock-table-container"):
-            yield DataTable(id="stock-table")
+            yield DataTable(id="stock-table", cursor_type="row")
         with Container(id="stock-detail-section"):
             yield Label(t("stock_detail"), id="stock-detail-title")
             yield RichLog(id="stock-detail-log", highlight=True, markup=True, wrap=True)
-        yield Static(f"F3: COT  |  F4: {t('deepseek_analysis')}  |  {t('stock_auto_refresh')}", id="stock-hint")
+        yield Static(f"F3: COT  |  F4: {t('deepseek_analysis')}  |  Enter: select stock", id="stock-hint")
 
     def on_mount(self) -> None:
         self.model.fetch_all()
         self.set_interval(0.1, self._poll)
 
     def _poll(self) -> None:
-        if self.model._quotes_ready:
-            self.model._quotes_ready = False
+        if self.model._quotes_updated:
+            self.model._quotes_updated = False
             self._update_table()
-            self._filter_table()
             try:
-                self.query_one("#stock-count", Static).update(f"{len(self.model._quotes)} stocks")
+                n = len(self.model._quotes)
+                self.query_one("#stock-count", Static).update(f"{n} / {len(MAJOR_STOCKS)}")
             except Exception:
                 pass
         if self.model._chart_ready:
-            self._update_detail()
+            self._show_detail()
             self.model._chart_ready = False
+
+    def _row_data(self, sym: str, q: dict) -> tuple:
+        price = q.get("price", 0)
+        chg_pct = q.get("change_pct", 0)
+        name = q.get("name", sym)
+        pe = q.get("pe", "")
+        if not price:
+            return (sym, Text(name[:20], style="dim"), Text("--", style="dim"),
+                    Text("--", style="dim"), Text(pe or "", style="dim"), "")
+        cs = "bold green" if chg_pct >= 0 else "bold red"
+        return (Text(sym, style=cs), Text(name[:20], style=""),
+                Text(f"{price:.2f}", style=cs),
+                Text(f"{chg_pct:+.2f}%", style="bold green" if chg_pct >= 0 else "bold red"),
+                Text(pe or "", style="dim"), "")
 
     def _update_table(self) -> None:
         try:
@@ -97,99 +111,64 @@ class StockScreen(Screen[None]):
             quotes = self.model._quotes
             if not quotes:
                 return
-            syms = sorted(quotes.keys())
             dt.clear(columns=True)
             dt.add_columns(t("symbol"), t("stock_name"), t("stock_price"), t("stock_change"), "PE", "Spark")
-            for sym in syms:
-                q = quotes[sym]
-                price = q.get("price", 0)
-                chg_pct = q.get("change_pct", 0)
-                name = q.get("name", sym)
-                pe = q.get("pe", "")
-                if not price:
-                    dt.add_row(sym, Text(name[:18], style="dim"), Text("--", style="dim"),
-                              Text("--", style="dim"), Text(pe, style="dim"), "")
-                    continue
-                color_style = "bold green" if chg_pct >= 0 else "bold red"
-                sym_text = Text(sym, style=color_style)
-                p_text = Text(f"{price:.2f}", style=color_style)
-                if chg_pct > 0:
-                    c_text = Text(f"+{chg_pct:.2f}%", style="bold green")
-                elif chg_pct < 0:
-                    c_text = Text(f"{chg_pct:.2f}%", style="bold red")
-                else:
-                    c_text = Text("0.00%", style="dim")
-                dt.add_row(sym_text, Text(name[:18], style=""), p_text, c_text, Text(pe, style="dim"), "")
-        except Exception:
-            pass
-
-    def _filter_table(self) -> None:
-        try:
-            inp = self.query_one("#stock-search", Input)
-            query = inp.value.strip().upper()
-        except Exception:
-            return
-        try:
-            dt = self.query_one("#stock-table", DataTable)
-            quotes = self.model._quotes
-            syms = sorted(quotes.keys())
-            dt.clear(columns=True)
-            dt.add_columns(t("symbol"), t("stock_name"), t("stock_price"), t("stock_change"), "PE", "Spark")
-            count = 0
-            for sym in syms:
-                q = quotes[sym]
-                name = str(q.get("name", sym))
-                if query and query not in sym.upper() and query.upper() not in name.upper():
-                    continue
-                count += 1
-                price = q.get("price", 0)
-                chg_pct = q.get("change_pct", 0)
-                pe = q.get("pe", "")
-                if not price:
-                    dt.add_row(sym, Text(name[:18], style="dim"), Text("--", style="dim"),
-                              Text("--", style="dim"), Text(pe, style="dim"), "")
-                    continue
-                color_style = "bold green" if chg_pct >= 0 else "bold red"
-                sym_text = Text(sym, style=color_style)
-                p_text = Text(f"{price:.2f}", style=color_style)
-                c_text = Text(f"{chg_pct:+.2f}%",
-                             style="bold green" if chg_pct >= 0 else "bold red")
-                dt.add_row(sym_text, Text(name[:18], style=""), p_text, c_text, Text(pe, style="dim"), "")
+            for sym in sorted(quotes.keys()):
+                dt.add_row(*self._row_data(sym, quotes[sym]))
         except Exception:
             pass
 
     def on_input_changed(self, event: Input.Changed) -> None:
-        if event.input.id == "stock-search":
-            self._filter_table()
+        if event.input.id != "stock-search":
+            return
+        query = event.value.strip().upper()
+        try:
+            dt = self.query_one("#stock-table", DataTable)
+            quotes = self.model._quotes
+            dt.clear(columns=True)
+            dt.add_columns(t("symbol"), t("stock_name"), t("stock_price"), t("stock_change"), "PE", "Spark")
+            for sym in sorted(quotes.keys()):
+                q = quotes[sym]
+                name = str(q.get("name", sym))
+                if query and query not in sym.upper() and query.upper() not in name.upper():
+                    continue
+                dt.add_row(*self._row_data(sym, q))
+            if query and query not in quotes:
+                self.model.dynamic_fetch(query)
+        except Exception:
+            pass
 
-    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        if event.row_key.value is not None:
-            try:
-                dt = self.query_one("#stock-table", DataTable)
-                row = dt.get_row(event.row_key)
-                sym = str(row[0])
-                self._selected = sym
-                self.model.fetch_chart(sym)
-            except Exception:
-                pass
+    def on_data_table_cell_selected(self, event: DataTable.CellSelected) -> None:
+        try:
+            dt = self.query_one("#stock-table", DataTable)
+            row_key = event.cell_key.row_key
+            row = dt.get_row(row_key)
+            sym = str(row[0])
+            self._selected = sym
+            log = self.query_one("#stock-detail-log", RichLog)
+            log.clear()
+            log.write(f"[dim]Loading {sym}...[/]")
+            self.model.fetch_chart(sym)
+        except Exception:
+            pass
 
-    def _update_detail(self) -> None:
+    def _show_detail(self) -> None:
         try:
             log = self.query_one("#stock-detail-log", RichLog)
             log.clear()
             q = self.model._quotes.get(self._selected, {})
             if not q:
                 return
-            name = q.get("name", self._selected)
             price = q.get("price", 0)
             chg_pct = q.get("change_pct", 0)
+            name = q.get("name", self._selected)
             color = "green" if chg_pct >= 0 else "red"
             log.write(f"[bold]{name} ({self._selected})[/]")
             log.write(f"[{color}]${price:.2f}  {chg_pct:+.2f}%[/]")
 
             prices = self.model._chart_prices
-            if prices:
-                spark = StockModel.sparkline(prices, 55)
+            if prices and len(prices) >= 2:
+                spark = StockModel.sparkline(prices, 50)
                 if spark:
                     log.write(f"[dim]{spark}[/]")
             log.write("")
@@ -201,13 +180,9 @@ class StockScreen(Screen[None]):
             high = q.get("high", "")
             low = q.get("low", "")
 
-            if pe:
-                log.write(f"PE: {pe}")
-            if cap:
-                log.write(f"Market Cap: {cap}")
-            if h52 and l52:
-                log.write(f"52W Range: {l52} - {h52}")
-            if high and low:
-                log.write(f"Today: {low} - {high}")
+            if pe:  log.write(f"PE: {pe}")
+            if cap: log.write(f"Market Cap: {cap}")
+            if h52 and l52: log.write(f"52W Range: {l52} - {h52}")
+            if high and low: log.write(f"Today: {low} - {high}")
         except Exception:
             pass
