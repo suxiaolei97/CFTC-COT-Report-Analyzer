@@ -70,15 +70,11 @@ class StockModel:
                             v = m.group(2).split("~")
                             if len(v) > 49:
                                 result[s] = {
-                                    "symbol": s,
-                                    "price": self._f(v, 3),
-                                    "prev_close": self._f(v, 4),
-                                    "open": self._f(v, 5),
+                                    "symbol": s, "price": self._f(v, 3),
+                                    "prev_close": self._f(v, 4), "open": self._f(v, 5),
                                     "volume": v[6] if v[6] else "0",
-                                    "high": self._f(v, 33),
-                                    "low": self._f(v, 34),
-                                    "change": self._f(v, 31),
-                                    "change_pct": self._f(v, 32),
+                                    "high": self._f(v, 33), "low": self._f(v, 34),
+                                    "change": self._f(v, 31), "change_pct": self._f(v, 32),
                                     "name": v[46] if len(v) > 46 and v[46] else v[1],
                                     "pe": v[47] if len(v) > 47 else "",
                                     "market_cap": v[44] if len(v) > 44 else "",
@@ -87,8 +83,7 @@ class StockModel:
                                     "amplitude": v[38] if len(v) > 38 else "",
                                     "turnover": v[39] if len(v) > 39 else "",
                                     "amount": v[37] if len(v) > 37 else "",
-                                    "bid": self._f(v, 9),
-                                    "ask": self._f(v, 19),
+                                    "bid": self._f(v, 9), "ask": self._f(v, 19),
                                     "currency": "USD",
                                 }
             except Exception:
@@ -107,15 +102,11 @@ class StockModel:
                         v = m.group(2).split("~")
                         if len(v) > 49:
                             self._quotes[m.group(1)] = {
-                                "symbol": m.group(1),
-                                "price": self._f(v, 3),
-                                "prev_close": self._f(v, 4),
-                                "open": self._f(v, 5),
+                                "symbol": m.group(1), "price": self._f(v, 3),
+                                "prev_close": self._f(v, 4), "open": self._f(v, 5),
                                 "volume": v[6] if v[6] else "0",
-                                "high": self._f(v, 33),
-                                "low": self._f(v, 34),
-                                "change": self._f(v, 31),
-                                "change_pct": self._f(v, 32),
+                                "high": self._f(v, 33), "low": self._f(v, 34),
+                                "change": self._f(v, 31), "change_pct": self._f(v, 32),
                                 "name": v[46] if len(v) > 46 and v[46] else v[1],
                                 "pe": v[47] if len(v) > 47 else "",
                                 "market_cap": v[44] if len(v) > 44 else "",
@@ -124,8 +115,7 @@ class StockModel:
                                 "amplitude": v[38] if len(v) > 38 else "",
                                 "turnover": v[39] if len(v) > 39 else "",
                                 "amount": v[37] if len(v) > 37 else "",
-                                "bid": self._f(v, 9),
-                                "ask": self._f(v, 19),
+                                "bid": self._f(v, 9), "ask": self._f(v, 19),
                                 "currency": "USD",
                             }
         except Exception:
@@ -133,7 +123,6 @@ class StockModel:
         self._quotes_updated = True
 
     def _do_fetch_detail(self, sym):
-        from config import load_app_config
         info = {"symbol": sym, "name": sym}
         try:
             hdr = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
@@ -146,7 +135,6 @@ class StockModel:
                 info["exchange"] = d.get("exchange", "")
                 info["sector"] = d.get("sector", "")
                 info["industry"] = d.get("industry", "")
-                info["isNasdaq100"] = d.get("isNasdaq100", False)
                 summary = d.get("summaryData", {}) or {}
                 for k in summary:
                     info[k] = summary[k]
@@ -188,6 +176,8 @@ class StockScreen(Screen[None]):
         self.title = "Stock Market"
         self.model = StockModel()
         self._selected = ""
+        self._last_query = ""
+        self._last_count = 0
 
     def compose(self):
         with Container(id="stock-left"):
@@ -206,49 +196,22 @@ class StockScreen(Screen[None]):
     def on_mount(self):
         self.model.fetch_all()
         self.set_interval(0.1, self._poll)
-        self.set_interval(0.3, self._apply_search)
-
-    def _apply_search(self):
-        try:
-            inp = self.query_one("#stock-search", Input)
-            q = inp.value.strip().upper()
-        except Exception:
-            return
-        if not self.model._quotes:
-            return
-        try:
-            dt = self.query_one("#stock-table", DataTable)
-            if not q:
-                dt.clear(columns=True)
-                dt.add_columns(t("symbol"), t("stock_name"), t("stock_price"), t("stock_change"))
-                for s in sorted(self.model._quotes.keys()):
-                    dt.add_row(*self._row(s, self.model._quotes[s]))
-                return
-            dt.clear(columns=True)
-            dt.add_columns(t("symbol"), t("stock_name"), t("stock_price"), t("stock_change"))
-            for s in sorted(self.model._quotes.keys()):
-                d = self.model._quotes[s]
-                nm = str(d.get("name", s))
-                if q not in s.upper() and q.upper() not in nm.upper():
-                    continue
-                dt.add_row(*self._row(s, d))
-            if q not in self.model._quotes:
-                self.model.dynamic_fetch(q)
-        except Exception:
-            pass
 
     def _poll(self):
+        updated = False
         if self.model._quotes_updated:
             self.model._quotes_updated = False
-            self._update_table()
-            try:
-                n = len(self.model._quotes)
-                self.query_one("#stock-count", Static).update(f"{n} stocks")
-            except Exception:
-                pass
+            updated = True
         if self.model._info_ready:
             self._show_detail()
             self.model._info_ready = False
+        if updated:
+            self._update_table()
+            self._last_count = len(self.model._quotes)
+            try:
+                self.query_one("#stock-count", Static).update(f"{self._last_count} stocks")
+            except Exception:
+                pass
 
     def _row(self, sym, q):
         pr = q.get("price", 0)
@@ -272,7 +235,28 @@ class StockScreen(Screen[None]):
             pass
 
     def on_input_changed(self, event):
-        pass
+        if event.input.id != "stock-search":
+            return
+        q = event.value.strip().upper()
+        if q == self._last_query:
+            return
+        self._last_query = q
+        if not self.model._quotes:
+            return
+        try:
+            dt = self.query_one("#stock-table", DataTable)
+            dt.clear(columns=True)
+            dt.add_columns(t("symbol"), t("stock_name"), t("stock_price"), t("stock_change"))
+            for s in sorted(self.model._quotes.keys()):
+                d = self.model._quotes[s]
+                nm = str(d.get("name", s))
+                if q and q not in s.upper() and q.upper() not in nm.upper():
+                    continue
+                dt.add_row(*self._row(s, d))
+            if q and q not in self.model._quotes:
+                self.model.dynamic_fetch(q)
+        except Exception:
+            pass
 
     def on_data_table_row_highlighted(self, event):
         try:
@@ -297,11 +281,9 @@ class StockScreen(Screen[None]):
             pr = q.get("price", 0)
             pct = q.get("change_pct", 0)
             c = "green" if pct >= 0 else "red"
-
             log.write(f"[bold]{name} ({sym})[/]")
             log.write(f"[{c}]${pr:.2f}  {pct:+.2f}%[/]")
             log.write("")
-
             rows = [
                 (t("stock_sector"), q.get("sector", "")),
                 ("Industry", q.get("industry", "")),
