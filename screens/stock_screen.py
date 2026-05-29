@@ -252,7 +252,7 @@ class StockScreen(Screen[None]):
             name = info.get("name", sym)
             log.write(f"[bold]{name} ({sym})[/]")
 
-            spark = self.model.get_sparkline(self.model._intraday_df, width=40)
+            spark = self.model.get_sparkline(width=40)
             if spark:
                 log.write(f"[dim]{spark}[/]")
             log.write("")
