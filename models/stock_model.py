@@ -34,6 +34,21 @@ class StockModel:
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False)
 
+    def fetch_quotes(self, symbols: list[str]) -> None:
+        self._quotes_ready = False
+        self._error = ""
+        self._executor.submit(self._do_fetch_quotes, list(symbols))
+
+    def fetch_info(self, symbol: str) -> None:
+        self._info_ready = False
+        self._info = {}
+        self._executor.submit(self._do_fetch_info, symbol)
+
+    def fetch_intraday(self, symbol: str) -> None:
+        self._intraday_ready = False
+        self._intraday_symbol = symbol
+        self._executor.submit(self._do_fetch_intraday, symbol)
+
     def _do_fetch_quotes(self, symbols: list[str]) -> None:
         try:
             import yfinance as yf
