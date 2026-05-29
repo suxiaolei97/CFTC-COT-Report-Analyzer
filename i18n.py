@@ -67,6 +67,13 @@ _TRANSLATIONS = {
         "commercial": "商业",
         "nonreportable": "非报告",
         "total_reportable": "报告合计",
+        "report_type_legacy_fut": "Legacy 仅期货",
+        "report_type_legacy_futopt": "Legacy 期货+期权",
+        "report_type_supplemental_futopt": "补充 期货+期权",
+        "report_type_disaggregated_fut": "细分 仅期货",
+        "report_type_disaggregated_futopt": "细分 期货+期权",
+        "report_type_tff_fut": "TFF 仅期货",
+        "report_type_tff_futopt": "TFF 期货+期权",
     },
     "en": {
         "app_title": "CFTC COT Dashboard",
@@ -134,6 +141,13 @@ _TRANSLATIONS = {
         "commercial": "Commercial",
         "nonreportable": "Non-Reportable",
         "total_reportable": "Total Reportable",
+        "report_type_legacy_fut": "Legacy Futures Only",
+        "report_type_legacy_futopt": "Legacy Futures & Options",
+        "report_type_supplemental_futopt": "Supplemental F&O",
+        "report_type_disaggregated_fut": "Disaggregated Futures",
+        "report_type_disaggregated_futopt": "Disaggregated F&O",
+        "report_type_tff_fut": "TFF Futures Only",
+        "report_type_tff_futopt": "TFF Futures & Options",
     },
 }
 

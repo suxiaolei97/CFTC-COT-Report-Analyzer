@@ -106,6 +106,8 @@ class SettingsScreen(Screen[dict]):
             yield Label("Language / 语言", classes="settings-section")
             lang_options = [("中文", "zh"), ("English", "en")]
             saved_lang = cfg.get("lang", "zh")
+            if not saved_lang or saved_lang not in ("zh", "en"):
+                saved_lang = "zh"
             yield Select(lang_options, value=saved_lang, id="settings-lang")
 
             with Horizontal(id="settings-buttons"):

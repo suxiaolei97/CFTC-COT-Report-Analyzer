@@ -139,7 +139,7 @@ class MainScreen(Screen[None]):
         with Container(id="left-panel"):
             with Vertical(id="left-top"):
                 yield Label(
-                    f"[{REPORT_TYPES.get(self.report_type, self.report_type)}]",
+                    f"[{t('report_type_' + self.report_type)}]",
                     id="report-label",
                 )
                 yield Label(
@@ -320,8 +320,9 @@ class MainScreen(Screen[None]):
             f"Latest: {self.model.latest_date}  |  Markets: {self.model.market_count}"
         )
         self.query_one("#report-label", Label).update(
-            f"[{REPORT_TYPES.get(self.report_type, self.report_type)}]"
+            f"[{t('report_type_' + self.report_type)}]"
         )
+        self.query_one("#detail-title", Label).update(t("market_detail"))
         cfg = load_app_config()
         model_raw = cfg.get("model", "pro")
         model = model_raw.upper() if isinstance(model_raw, str) else "PRO"

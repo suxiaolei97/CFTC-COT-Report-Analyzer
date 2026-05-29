@@ -49,7 +49,8 @@ class DatasetScreen(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         buttons = []
-        for key, label in REPORT_TYPES.items():
+        for key in REPORT_TYPES:
+            label = t("report_type_" + key)
             rb = RadioButton(label, id=f"ds-{key}")
             if key == self.current:
                 rb.value = True
