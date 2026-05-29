@@ -280,10 +280,13 @@ class MainScreen(Screen[None]):
             log.write(f"[dim]{spark}[/]")
         if cot_idx is not None:
             if cot_idx >= 80:
+                idx_color = "bold red"
                 idx_label = t("cot_index_extreme_long")
             elif cot_idx <= 20:
+                idx_color = "bold green"
                 idx_label = t("cot_index_extreme_short")
             else:
+                idx_color = "yellow"
                 idx_label = t("cot_index_neutral")
             log.write(f"{t('cot_index')}: [{idx_color}]{cot_idx:.0f}[/]  [{idx_color}]{idx_label}[/]")
         log.write(f"{t('open_interest')}: [bold]{oi:,.0f}[/]")
