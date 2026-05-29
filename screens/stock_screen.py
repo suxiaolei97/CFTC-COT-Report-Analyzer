@@ -244,6 +244,8 @@ class StockScreen(Screen[None]):
     def on_input_changed(self, event):
         if event.input.id != "stock-search":
             return
+        if not self.model._quotes:
+            return
         q = event.value.strip().upper()
         try:
             dt = self.query_one("#stock-table", DataTable)
