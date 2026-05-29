@@ -3,7 +3,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Button, Input, Label, RadioButton, RadioSet, Select
 
-from config import REPORT_TYPES, DEFAULT_REPORT_TYPE, DEFAULT_YEAR, DEFAULT_START_YEAR, DEFAULT_LANG, DEFAULT_TOP_N, load_app_config, save_app_config
+from config import REPORT_TYPES, DEFAULT_REPORT_TYPE, DEFAULT_YEAR, DEFAULT_START_YEAR, DEFAULT_LANG, DEFAULT_TOP_N, DEFAULT_WATCHLIST, DEFAULT_STOCK_REFRESH, load_app_config, save_app_config
 from i18n import t, set_lang
 
 
@@ -117,6 +117,20 @@ class SettingsScreen(Screen[dict]):
                 id="settings-top-n",
             )
 
+            yield Label("Stock Watchlist", classes="settings-section")
+            yield Input(
+                value=str(cfg.get("watchlist", DEFAULT_WATCHLIST)),
+                placeholder=DEFAULT_WATCHLIST,
+                id="settings-watchlist",
+            )
+
+            yield Label("Stock Refresh (sec)", classes="settings-section")
+            yield Input(
+                value=str(cfg.get("stock_refresh", DEFAULT_STOCK_REFRESH)),
+                placeholder=str(DEFAULT_STOCK_REFRESH),
+                id="settings-stock-refresh",
+            )
+
             with Horizontal(id="settings-buttons"):
                 yield Button(t("save"), variant="primary", id="btn-save")
                 yield Button(t("cancel"), variant="default", id="btn-cancel")
@@ -178,6 +192,16 @@ class SettingsScreen(Screen[dict]):
         if top_n < 1:
             top_n = DEFAULT_TOP_N
 
+        watchlist = self.query_one("#settings-watchlist", Input).value.strip()
+        if not watchlist:
+            watchlist = DEFAULT_WATCHLIST
+
+        stock_refresh_str = self.query_one("#settings-stock-refresh", Input).value.strip()
+        try:
+            stock_refresh = int(stock_refresh_str)
+        except ValueError:
+            stock_refresh = DEFAULT_STOCK_REFRESH
+
         sel_lang = self.query_one("#settings-lang", Select)
 
         data = {
@@ -188,6 +212,8 @@ class SettingsScreen(Screen[dict]):
             "year": year,
             "start_year": start_year,
             "top_n": top_n,
+            "watchlist": watchlist,
+            "stock_refresh": stock_refresh,
             "lang": str(sel_lang.value) if sel_lang.value else "zh",
         }
         save_app_config(data)

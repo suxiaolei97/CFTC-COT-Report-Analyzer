@@ -12,11 +12,13 @@ from screens.dataset_screen import DatasetScreen
 from screens.loading_screen import LoadingScreen
 from screens.main_screen import MainScreen
 from screens.settings_screen import SettingsScreen
+from screens.stock_screen import StockScreen
 
 
 class CotTui(App[None]):
     BINDINGS = [
         Binding("f2", "switch_dataset", t("dataset")),
+        Binding("f3", "toggle_stocks", t("stock_market")),
         Binding("f4", "analysis", t("deepseek_analysis")),
         Binding("f5", "refresh", t("refresh")),
         Binding("f12", "settings", t("settings")),
@@ -95,6 +97,17 @@ class CotTui(App[None]):
             else:
                 self.push_screen(MainScreen(self.model, self.report_type))
 
+    def action_toggle_stocks(self) -> None:
+        stock_screen = self.get_current_stock()
+        if stock_screen:
+            stock_screen.dismiss()
+            return
+        main = self.get_current_main()
+        stock = StockScreen()
+        self.push_screen(stock)
+        if main:
+            stock.update_hint()
+
     def action_analysis(self) -> None:
         if self.model is None:
             return
@@ -170,5 +183,11 @@ class CotTui(App[None]):
     def get_current_main(self) -> MainScreen | None:
         for screen in self.screen_stack:
             if isinstance(screen, MainScreen):
+                return screen
+        return None
+
+    def get_current_stock(self) -> StockScreen | None:
+        for screen in self.screen_stack:
+            if isinstance(screen, StockScreen):
                 return screen
         return None
