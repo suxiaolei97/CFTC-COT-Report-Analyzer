@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-import time as time_mod
+import re as _re
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import requests
 
-_NASDAQ_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "en-US,en;q=0.9",
-}
+_TENCENT_QUOTE_URL = "http://qt.gtimg.cn/q="
+_TENCENT_KLINE_URL = "http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={},day,2026-05-01,,20,qfq"
 
 MAJOR_STOCKS = [
     "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRKB",
@@ -28,104 +25,88 @@ MAJOR_STOCKS = [
 
 class StockModel:
     def __init__(self) -> None:
-        self._executor = ThreadPoolExecutor(max_workers=6)
+        self._executor = ThreadPoolExecutor(max_workers=4)
+        self._quotes_ready: bool = False
         self._quotes: dict[str, dict] = {}
-        self._quotes_updated: bool = False
-        self._quotes_done: bool = False
-        self._info_ready: bool = False
-        self._info: dict[str, Any] = {}
         self._chart_ready: bool = False
         self._chart_prices: list[float] = []
+        self._info_ready: bool = False
+        self._info: dict[str, Any] = {}
 
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False)
 
     def fetch_all(self, symbols: list[str] | None = None) -> None:
-        self._quotes = {}
-        self._quotes_done = False
-        self._quotes_updated = False
+        self._quotes_ready = False
         self._executor.submit(self._do_fetch_all, list(symbols or MAJOR_STOCKS))
 
-    def fetch_info(self, symbol: str) -> None:
-        self._info_ready = False
+    def fetch_chart(self, symbol: str) -> None:
         self._chart_ready = False
-        self._info = {}
-        self._executor.submit(self._do_fetch_info, symbol)
         self._executor.submit(self._do_fetch_chart, symbol)
 
-    def _fetch_quote(self, sym: str) -> dict:
-        url = f"https://api.nasdaq.com/api/quote/{sym}/info?assetclass=stocks"
-        try:
-            r = requests.get(url, headers=_NASDAQ_HEADERS, timeout=6)
-            if r.status_code == 200:
-                d = r.json()
-                data = d.get("data", {}) or {}
-                primary = data.get("primaryData", {}) or {}
-                ps = primary.get("lastSalePrice", "").replace("$", "").replace(",", "")
-                cs = primary.get("netChange", "").replace("$", "").replace(",", "")
-                pcts = primary.get("percentageChange", "").replace("%", "")
-                price = float(ps) if ps and ps != "N/A" else 0
-                chg = float(cs) if cs and cs != "N/A" else 0
-                chg_pct = float(pcts) if pcts and pcts != "N/A" else 0
-                return {"symbol": sym, "price": price, "change": chg, "change_pct": chg_pct,
-                        "name": data.get("companyName", sym) or sym}
-        except Exception:
-            pass
-        return {"symbol": sym, "price": 0, "change": 0, "change_pct": 0, "name": sym, "nodata": True}
-
     def _do_fetch_all(self, symbols: list[str]) -> None:
-        for sym in symbols:
-            self._quotes[sym] = self._fetch_quote(sym)
-            self._quotes_updated = True
-            time_mod.sleep(0.02)
-        self._quotes_done = True
-        self._quotes_updated = True
-
-    def _do_fetch_info(self, symbol: str) -> None:
-        url = f"https://api.nasdaq.com/api/quote/{symbol}/info?assetclass=stocks"
-        try:
-            r = requests.get(url, headers=_NASDAQ_HEADERS, timeout=6)
-            if r.status_code == 200:
-                d = r.json()
-                data = d.get("data", {}) or {}
-                summary = data.get("summaryData", {}) or {}
-                self._info = {
-                    "symbol": symbol, "name": data.get("companyName", symbol) or symbol,
-                    "sector": data.get("sector", ""), "industry": data.get("industry", ""),
-                    "market_cap": (summary.get("MarketCap", {}) or {}).get("value"),
-                    "pe_ratio": (summary.get("P/E", {}) or {}).get("value"),
-                    "dividend_yield": (summary.get("Yield", {}) or {}).get("value"),
-                    "52w_high": (summary.get("AnnualHigh", {}) or {}).get("value"),
-                    "52w_low": (summary.get("AnnualLow", {}) or {}).get("value"),
-                    "avg_volume": (summary.get("AverageVolume", {}) or {}).get("value"),
-                    "eps": (summary.get("EPS", {}) or {}).get("value"), "currency": "USD",
-                }
-                return
-        except Exception:
-            pass
-        self._info = {"symbol": symbol, "name": symbol, "error": True}
-        self._info_ready = True
+        result = {}
+        batch_size = 60
+        for i in range(0, len(symbols), batch_size):
+            batch = symbols[i:i + batch_size]
+            qs = ",".join(f"us{s}" for s in batch)
+            try:
+                r = requests.get(_TENCENT_QUOTE_URL + qs, timeout=15)
+                if r.status_code == 200:
+                    for line in r.text.strip().split("\n"):
+                        line = line.strip()
+                        if not line or "=" not in line:
+                            continue
+                        m = _re.search(r'v_us(\w+)="(.*)"', line)
+                        if m:
+                            sym = m.group(1)
+                            vals = m.group(2).split("~")
+                            if len(vals) > 33:
+                                result[sym] = {
+                                    "symbol": sym,
+                                    "price": float(vals[3]) if vals[3] else 0,
+                                    "change": float(vals[31]) if vals[31] else 0,
+                                    "change_pct": float(vals[32]) if vals[32] else 0,
+                                    "name": vals[46] if len(vals) > 46 and vals[46] else vals[1],
+                                    "market_cap": vals[44] if len(vals) > 44 else "",
+                                    "pe": vals[47] if len(vals) > 47 else "",
+                                    "high_52w": vals[48] if len(vals) > 48 else "",
+                                    "low_52w": vals[49] if len(vals) > 49 else "",
+                                    "high": vals[33] if len(vals) > 33 else "",
+                                    "low": vals[34] if len(vals) > 34 else "",
+                                }
+            except Exception:
+                pass
+        self._quotes = result
+        self._quotes_ready = True
 
     def _do_fetch_chart(self, symbol: str) -> None:
-        url = f"https://api.nasdaq.com/api/quote/{symbol}/chart?assetclass=stocks&fromdate=2026-05-01&todate=2026-05-31"
+        prices: list[float] = []
         try:
-            r = requests.get(url, headers=_NASDAQ_HEADERS, timeout=8)
+            r = requests.get(_TENCENT_KLINE_URL.format(f"us{symbol}"), timeout=6)
             if r.status_code == 200:
                 d = r.json()
-                chart = (d.get("data", {}) or {}).get("chart", []) or []
-                prices = []
-                for c in chart:
-                    try:
-                        prices.append(float(c.get("z", {}).get("close", 0) or 0))
-                    except (ValueError, TypeError):
-                        pass
-                self._chart_prices = prices
+                if d.get("code") == 0:
+                    data = d.get("data", {})
+                    us = data.get(f"us{symbol}", {})
+                    day = us.get("day", []) if isinstance(us, dict) else []
+                    prices = [float(k[2]) for k in day if len(k) > 2 and k[2]]
+            if not prices:
+                hdr = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+                r2 = requests.get(
+                    f"https://api.nasdaq.com/api/quote/{symbol}/chart?assetclass=stocks&fromdate=2026-05-01&todate=2026-05-31",
+                    headers=hdr, timeout=8)
+                if r2.status_code == 200:
+                    d2 = r2.json()
+                    chart = (d2.get("data", {}) or {}).get("chart", []) or []
+                    prices = [float(c.get("z", {}).get("close", 0) or 0) for c in chart if c.get("z", {}).get("close")]
         except Exception:
-            self._chart_prices = []
+            pass
+        self._chart_prices = prices
         self._chart_ready = True
 
     @staticmethod
-    def sparkline(prices: list[float], width: int = 20) -> str:
+    def sparkline(prices: list[float], width: int = 25) -> str:
         clean = [p for p in prices if p > 0]
         if len(clean) < 2:
             return ""
