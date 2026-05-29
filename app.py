@@ -4,7 +4,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.widgets import Header
 
-from config import DEFAULT_REPORT_TYPE, DEFAULT_YEAR, DEFAULT_START_YEAR, DEFAULT_LANG, DEFAULT_TOP_N, REPORT_TYPES, load_app_config, data_path
+from config import DEFAULT_REPORT_TYPE, DEFAULT_YEAR, DEFAULT_START_YEAR, DEFAULT_LANG, DEFAULT_TOP_N, DEFAULT_VIEW, REPORT_TYPES, load_app_config, data_path
 from i18n import t, set_lang
 from models.cot_model import CotData
 from screens.analysis_screen import AnalysisScreen
@@ -62,10 +62,15 @@ class CotTui(App[None]):
         yield Header(show_clock=True, icon="\u25CF")
 
     def on_mount(self) -> None:
-        self.push_screen(
-            LoadingScreen(report_type=self.report_type, year=self.year, start_year=self.start_year),
-            callback=self._on_data_loaded,
-        )
+        cfg = load_app_config()
+        view = cfg.get("view", DEFAULT_VIEW)
+        if view == "stocks":
+            self.push_screen(StockScreen())
+        else:
+            self.push_screen(
+                LoadingScreen(report_type=self.report_type, year=self.year, start_year=self.start_year),
+                callback=self._on_data_loaded,
+            )
 
     def _on_data_loaded(self, result: CotData | None) -> None:
         if result is not None:

@@ -29,9 +29,10 @@ MAJOR_STOCKS = [
 class StockModel:
     def __init__(self) -> None:
         self._executor = ThreadPoolExecutor(max_workers=6)
-        self._quotes_ready: bool = False
-        self._info_ready: bool = False
         self._quotes: dict[str, dict] = {}
+        self._quotes_updated: bool = False
+        self._quotes_done: bool = False
+        self._info_ready: bool = False
         self._info: dict[str, Any] = {}
         self._chart_ready: bool = False
         self._chart_prices: list[float] = []
@@ -40,7 +41,9 @@ class StockModel:
         self._executor.shutdown(wait=False)
 
     def fetch_all(self, symbols: list[str] | None = None) -> None:
-        self._quotes_ready = False
+        self._quotes = {}
+        self._quotes_done = False
+        self._quotes_updated = False
         self._executor.submit(self._do_fetch_all, list(symbols or MAJOR_STOCKS))
 
     def fetch_info(self, symbol: str) -> None:
@@ -71,13 +74,12 @@ class StockModel:
         return {"symbol": sym, "price": 0, "change": 0, "change_pct": 0, "name": sym, "nodata": True}
 
     def _do_fetch_all(self, symbols: list[str]) -> None:
-        result = {}
-        for i, sym in enumerate(symbols):
-            if i > 0:
-                time_mod.sleep(0.03)
-            result[sym] = self._fetch_quote(sym)
-        self._quotes = result
-        self._quotes_ready = True
+        for sym in symbols:
+            self._quotes[sym] = self._fetch_quote(sym)
+            self._quotes_updated = True
+            time_mod.sleep(0.02)
+        self._quotes_done = True
+        self._quotes_updated = True
 
     def _do_fetch_info(self, symbol: str) -> None:
         url = f"https://api.nasdaq.com/api/quote/{symbol}/info?assetclass=stocks"

@@ -3,7 +3,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Button, Input, Label, RadioButton, RadioSet, Select
 
-from config import REPORT_TYPES, DEFAULT_REPORT_TYPE, DEFAULT_YEAR, DEFAULT_START_YEAR, DEFAULT_LANG, DEFAULT_TOP_N, DEFAULT_WATCHLIST, DEFAULT_STOCK_REFRESH, load_app_config, save_app_config
+from config import REPORT_TYPES, DEFAULT_REPORT_TYPE, DEFAULT_YEAR, DEFAULT_START_YEAR, DEFAULT_LANG, DEFAULT_TOP_N, DEFAULT_WATCHLIST, DEFAULT_STOCK_REFRESH, DEFAULT_VIEW, load_app_config, save_app_config
 from i18n import t, set_lang
 
 
@@ -110,6 +110,13 @@ class SettingsScreen(Screen[dict]):
                 saved_lang = "zh"
             yield Select(lang_options, value=saved_lang, id="settings-lang")
 
+            yield Label("Startup View", classes="settings-section")
+            view_options = [("COT", "cot"), ("Stocks", "stocks")]
+            saved_view = cfg.get("view", "cot")
+            if saved_view not in ("cot", "stocks"):
+                saved_view = "cot"
+            yield Select(view_options, value=saved_view, id="settings-view")
+
             yield Label(t("top_n"), classes="settings-section")
             yield Input(
                 value=str(cfg.get("top_n", DEFAULT_TOP_N)),
@@ -203,6 +210,7 @@ class SettingsScreen(Screen[dict]):
             stock_refresh = DEFAULT_STOCK_REFRESH
 
         sel_lang = self.query_one("#settings-lang", Select)
+        sel_view = self.query_one("#settings-view", Select)
 
         data = {
             "api_key": key,
@@ -215,6 +223,7 @@ class SettingsScreen(Screen[dict]):
             "watchlist": watchlist,
             "stock_refresh": stock_refresh,
             "lang": str(sel_lang.value) if sel_lang.value else "zh",
+            "view": str(sel_view.value) if sel_view.value else "cot",
         }
         save_app_config(data)
         set_lang(data["lang"])
