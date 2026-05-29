@@ -5,12 +5,13 @@ A Python Textual TUI dashboard for browsing and analyzing CFTC Commitments of Tr
 ## Features
 
 - **7 COT Report Types** — Legacy, Disaggregated, Supplemental, TFF (futures & options)
-- **Multi-Year Data** — Download and merge years of historical COT data with local caching
+- **Multi-Year Data** — Stored in `data/` folder; COT Index becomes accurate with 3+ years
 - **Three-Panel Layout** — Market list with debounced search, color-coded DataTable, detail pane
 - **COT Index** — 0-100 indicator showing current net position in historical range
 - **ASCII Sparklines** — Unicode block-element trend visualization of net positions
-- **DeepSeek AI Analysis (F4)** — Real-time streaming analysis with configurable model and thinking intensity
+- **DeepSeek AI Analysis (F4)** — Real-time streaming with configurable model and thinking intensity
 - **Arrow-Key Navigation** — `← →` switch panels, `↑ ↓` navigate items
+- **i18n CN/EN** — Instant language switching (F12 Settings), covers all UI text
 - **Persistent Settings (F12)** — API key, model, thinking, report type, year range, language
 
 ## Screenshot
