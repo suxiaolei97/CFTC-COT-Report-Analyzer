@@ -12,7 +12,48 @@ import cot_reports as cot
 from config import data_path, ensure_data_dir
 from i18n import t
 
-CAT_KEYS = ["noncommercial", "commercial", "nonreportable", "total_reportable"]
+CAT_KEYS_LEGACY = ["noncommercial", "commercial", "nonreportable", "total_reportable"]
+CAT_KEYS_DISAGG = ["prod_merc", "swap", "m_money", "other_rept", "nonrept", "tot_rept"]
+CAT_KEYS_TFF = ["dealer", "asset_mgr", "leveraged", "other_rept", "nonrept", "tot_rept"]
+
+CATEGORY_MAP = {
+    "legacy_fut": ("legacy", CAT_KEYS_LEGACY),
+    "legacy_futopt": ("legacy", CAT_KEYS_LEGACY),
+    "supplemental_futopt": ("legacy", CAT_KEYS_LEGACY),
+    "disaggregated_fut": ("disagg", CAT_KEYS_DISAGG),
+    "disaggregated_futopt": ("disagg", CAT_KEYS_DISAGG),
+    "traders_in_financial_futures_fut": ("tff", CAT_KEYS_TFF),
+    "traders_in_financial_futures_futopt": ("tff", CAT_KEYS_TFF),
+}
+
+
+def _cat_prefix(cat_key: str, cat_system: str) -> str:
+    """Convert i18n key to column-name regex prefix based on category system."""
+    mapping = {
+        "legacy": {
+            "noncommercial": r"non[_\s]*commercial",
+            "commercial": r"commercial",
+            "nonreportable": r"non[_\s]*reportable",
+            "total_reportable": r"total[_\s]*reportable",
+        },
+        "disagg": {
+            "prod_merc": r"prod[_\s]*merc",
+            "swap": r"swap",
+            "m_money": r"m[_\s]*money",
+            "other_rept": r"other[_\s]*rept",
+            "nonrept": r"non[_\s]*rept",
+            "tot_rept": r"tot[_\s]*rept",
+        },
+        "tff": {
+            "dealer": r"dealer",
+            "asset_mgr": r"asset[_\s]*mgr",
+            "leveraged": r"leveraged",
+            "other_rept": r"other[_\s]*rept",
+            "nonrept": r"non[_\s]*rept",
+            "tot_rept": r"tot[_\s]*rept",
+        },
+    }
+    return mapping.get(cat_system, {}).get(cat_key, r"\b" + re.escape(cat_key) + r"\b")
 
 
 @dataclass
@@ -36,6 +77,8 @@ class CotData:
         "traders_in_financial_futures_fut": "FinFutYY.txt",
         "traders_in_financial_futures_futopt": "FinComYY.txt",
     }
+
+    _sep = r"[\W_]"
 
     def _find_date_col(self) -> str:
         for col in self.df.columns:
@@ -123,6 +166,14 @@ class CotData:
     def market_count(self) -> int:
         return len(self._markets)
 
+    @property
+    def cat_keys(self) -> list[str]:
+        return CATEGORY_MAP.get(self.report_type, ("legacy", CAT_KEYS_LEGACY))[1]
+
+    @property
+    def cat_system(self) -> str:
+        return CATEGORY_MAP.get(self.report_type, ("legacy", CAT_KEYS_LEGACY))[0]
+
     def filter_by_market(self, market: str) -> pd.DataFrame:
         return self.df[self.df[self._col_market] == market].sort_values(
             self._col_date, ascending=False
@@ -139,8 +190,7 @@ class CotData:
         return [m for m in self._markets if q in m.lower()]
 
     def _cat_rx(self, category: str) -> str:
-        parts = category.split("_")
-        return r"\b" + r"\s+".join(parts) + r"\b"
+        return _cat_prefix(category, self.cat_system)
 
     def _col(self, pattern: str) -> str | None:
         rx = re.compile(pattern, re.IGNORECASE)
@@ -150,31 +200,31 @@ class CotData:
         return None
 
     def get_oi_col(self) -> str | None:
-        return self._col(r"^open\s*interest")
+        return self._col(r"^open[_\s]*interest")
 
     def get_oi_change_col(self) -> str | None:
-        return self._col(r"^change\s+in\s+open\s*interest")
+        return self._col(r"^change[_\s]+in[_\s]+open[_\s]*interest")
 
     def get_long_col(self, category: str) -> str | None:
-        return self._col(rf"{self._cat_rx(category)}.*positions?\W*[-–]?\W*long")
+        return self._col(rf"{self._cat_rx(category)}.*positions?{self._sep}*[-–]?{self._sep}*long")
 
     def get_short_col(self, category: str) -> str | None:
-        return self._col(rf"{self._cat_rx(category)}.*positions?\W*[-–]?\W*short")
+        return self._col(rf"{self._cat_rx(category)}.*positions?{self._sep}*[-–]?{self._sep}*short")
 
     def get_spread_col(self, category: str) -> str | None:
-        return self._col(rf"{self._cat_rx(category)}.*positions?\W*[-–]?\W*spread")
+        return self._col(rf"{self._cat_rx(category)}.*positions?{self._sep}*[-–]?{self._sep}*spread")
 
     def get_long_change_col(self, category: str) -> str | None:
-        return self._col(rf"change\s+in\s+{self._cat_rx(category)}\W*[-–]?\W*long")
+        return self._col(rf"change{self._sep}+in{self._sep}+{self._cat_rx(category)}{self._sep}*[-–]?{self._sep}*long")
 
     def get_short_change_col(self, category: str) -> str | None:
-        return self._col(rf"change\s+in\s+{self._cat_rx(category)}\W*[-–]?\W*short")
+        return self._col(rf"change{self._sep}+in{self._sep}+{self._cat_rx(category)}{self._sep}*[-–]?{self._sep}*short")
 
     def get_pct_long_col(self, category: str) -> str | None:
-        return self._col(rf"%\s*(of\s*oi)?\W*{self._cat_rx(category)}.*long")
+        return self._col(rf"%{self._sep}*(of{self._sep}+oi)?{self._sep}*{self._cat_rx(category)}.*long")
 
     def get_pct_short_col(self, category: str) -> str | None:
-        return self._col(rf"%\s*(of\s*oi)?\W*{self._cat_rx(category)}.*short")
+        return self._col(rf"%{self._sep}*(of{self._sep}+oi)?{self._sep}*{self._cat_rx(category)}.*short")
 
     def safe_val(self, row: pd.Series, col: str | None) -> float:
         if col is None or col not in row.index:
@@ -200,7 +250,7 @@ class CotData:
                 "market": str(row[self._col_market]),
                 "oi": self.safe_val(row, self.get_oi_col()),
             }
-            for cat_key in CAT_KEYS:
+            for cat_key in self.cat_keys:
                 longs = self.safe_val(row, self.get_long_col(cat_key))
                 shorts = self.safe_val(row, self.get_short_col(cat_key))
                 r[f"{cat_key}_long"] = longs
@@ -230,7 +280,7 @@ class CotData:
             "oi_change": self.safe_val(row, self.get_oi_change_col()),
         }
         detail["categories"] = {}
-        for cat_key in CAT_KEYS:
+        for cat_key in self.cat_keys:
             cat_label = t(cat_key)
             longs = self.safe_val(row, self.get_long_col(cat_key))
             shorts = self.safe_val(row, self.get_short_col(cat_key))
@@ -280,8 +330,9 @@ class CotData:
         lines.append("---")
         lines.append(f"Total markets in latest report: {len(sub)}")
 
-        nc_long = self.get_long_col("noncommercial")
-        nc_short = self.get_short_col("noncommercial")
+        prime_cat = self.cat_keys[0] if self.cat_keys else "noncommercial"
+        nc_long = self.get_long_col(prime_cat)
+        nc_short = self.get_short_col(prime_cat)
 
         if nc_long and nc_short:
             sub_copy = sub.copy()
@@ -307,7 +358,9 @@ class CotData:
 
         return "\n".join(lines)
 
-    def get_cot_index(self, market: str, category: str = "noncommercial") -> float | None:
+    def get_cot_index(self, market: str, category: str | None = None) -> float | None:
+        if category is None:
+            category = self.cat_keys[0] if self.cat_keys else "noncommercial"
         """COT Index: where current net position sits in historical range (0-100).
         > 80 = extreme long, < 20 = extreme short."""
         long_col = self.get_long_col(category)
@@ -326,7 +379,9 @@ class CotData:
         current = nets.iloc[0]
         return round((current - lo) / (hi - lo) * 100, 1)
 
-    def get_sparkline(self, market: str, category: str = "noncommercial", width: int = 30) -> str:
+    def get_sparkline(self, market: str, category: str | None = None, width: int = 30) -> str:
+        if category is None:
+            category = self.cat_keys[0] if self.cat_keys else "noncommercial"
         """ASCII sparkline of net position trend over time."""
         long_col = self.get_long_col(category)
         short_col = self.get_short_col(category)

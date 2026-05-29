@@ -16,7 +16,6 @@ from rich.text import Text
 
 from config import REPORT_TYPES, load_app_config
 from i18n import t
-from models.cot_model import CAT_KEYS
 
 
 class MainScreen(Screen[None]):
@@ -222,7 +221,7 @@ class MainScreen(Screen[None]):
             self.query_one("#center-title", Label).update("No data")
             return
 
-        cat_keys = CAT_KEYS
+        cat_keys = self.model.cat_keys
 
         cols = ["Date", "OI"]
         for ck in cat_keys:
