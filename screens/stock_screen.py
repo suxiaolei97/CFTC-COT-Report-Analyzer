@@ -206,6 +206,36 @@ class StockScreen(Screen[None]):
     def on_mount(self):
         self.model.fetch_all()
         self.set_interval(0.1, self._poll)
+        self.set_interval(0.3, self._apply_search)
+
+    def _apply_search(self):
+        try:
+            inp = self.query_one("#stock-search", Input)
+            q = inp.value.strip().upper()
+        except Exception:
+            return
+        if not self.model._quotes:
+            return
+        try:
+            dt = self.query_one("#stock-table", DataTable)
+            if not q:
+                dt.clear(columns=True)
+                dt.add_columns(t("symbol"), t("stock_name"), t("stock_price"), t("stock_change"))
+                for s in sorted(self.model._quotes.keys()):
+                    dt.add_row(*self._row(s, self.model._quotes[s]))
+                return
+            dt.clear(columns=True)
+            dt.add_columns(t("symbol"), t("stock_name"), t("stock_price"), t("stock_change"))
+            for s in sorted(self.model._quotes.keys()):
+                d = self.model._quotes[s]
+                nm = str(d.get("name", s))
+                if q not in s.upper() and q.upper() not in nm.upper():
+                    continue
+                dt.add_row(*self._row(s, d))
+            if q not in self.model._quotes:
+                self.model.dynamic_fetch(q)
+        except Exception:
+            pass
 
     def _poll(self):
         if self.model._quotes_updated:
@@ -242,25 +272,7 @@ class StockScreen(Screen[None]):
             pass
 
     def on_input_changed(self, event):
-        if event.input.id != "stock-search":
-            return
-        if not self.model._quotes:
-            return
-        q = event.value.strip().upper()
-        try:
-            dt = self.query_one("#stock-table", DataTable)
-            dt.clear(columns=True)
-            dt.add_columns(t("symbol"), t("stock_name"), t("stock_price"), t("stock_change"))
-            for s in sorted(self.model._quotes.keys()):
-                d = self.model._quotes[s]
-                nm = str(d.get("name", s))
-                if q and q not in s.upper() and q.upper() not in nm.upper():
-                    continue
-                dt.add_row(*self._row(s, d))
-            if q and q not in self.model._quotes:
-                self.model.dynamic_fetch(q)
-        except Exception:
-            pass
+        pass
 
     def on_data_table_row_highlighted(self, event):
         try:
