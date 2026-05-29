@@ -114,3 +114,12 @@ Requires 3+ years of data for reliable signals. Set Start Year to 2018 or earlie
 ## License
 
 GPL-3.0
+
+## Acknowledgments
+
+- [cot_reports](https://github.com/NDelventhal/cot_reports) by Niall Delventhal — CFTC COT data download and parsing
+- [Textual](https://github.com/Textualize/textual) by Textualize — terminal UI framework
+- [DeepSeek](https://deepseek.com) — AI language model API
+- [pandas](https://pandas.pydata.org) — data manipulation
+- [httpx](https://www.python-httpx.org) — HTTP client with streaming
+- [Rich](https://github.com/Textualize/rich) — terminal rich text rendering
