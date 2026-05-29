@@ -7,7 +7,6 @@ from typing import Any
 import requests
 
 _TENCENT_QUOTE_URL = "http://qt.gtimg.cn/q="
-_TENCENT_KLINE_URL = "http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={},day,2026-05-01,,20,qfq"
 
 MAJOR_STOCKS = [
     "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRKB",
@@ -82,24 +81,21 @@ class StockModel:
 
     def _do_fetch_chart(self, symbol: str) -> None:
         prices: list[float] = []
+        hdr = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
         try:
-            r = requests.get(_TENCENT_KLINE_URL.format(f"us{symbol}"), timeout=6)
+            r = requests.get(
+                f"https://api.nasdaq.com/api/quote/{symbol}/chart?assetclass=stocks&fromdate=2026-04-01&todate=2026-05-31",
+                headers=hdr, timeout=8)
             if r.status_code == 200:
                 d = r.json()
-                if d.get("code") == 0:
-                    data = d.get("data", {})
-                    us = data.get(f"us{symbol}", {})
-                    day = us.get("day", []) if isinstance(us, dict) else []
-                    prices = [float(k[2]) for k in day if len(k) > 2 and k[2]]
-            if not prices:
-                hdr = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
-                r2 = requests.get(
-                    f"https://api.nasdaq.com/api/quote/{symbol}/chart?assetclass=stocks&fromdate=2026-05-01&todate=2026-05-31",
-                    headers=hdr, timeout=8)
-                if r2.status_code == 200:
-                    d2 = r2.json()
-                    chart = (d2.get("data", {}) or {}).get("chart", []) or []
-                    prices = [float(c.get("z", {}).get("close", 0) or 0) for c in chart if c.get("z", {}).get("close")]
+                chart = (d.get("data", {}) or {}).get("chart", []) or []
+                for c in chart:
+                    try:
+                        p = float(c.get("z", {}).get("close", 0) or 0)
+                        if p:
+                            prices.append(p)
+                    except (ValueError, TypeError):
+                        pass
         except Exception:
             pass
         self._chart_prices = prices
