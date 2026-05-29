@@ -105,8 +105,6 @@ class CotTui(App[None]):
         main = self.get_current_main()
         stock = StockScreen()
         self.push_screen(stock)
-        if main:
-            stock.update_hint()
 
     def action_analysis(self) -> None:
         if self.model is None:
