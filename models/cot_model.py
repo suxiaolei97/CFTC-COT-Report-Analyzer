@@ -10,6 +10,9 @@ import pandas as pd
 import cot_reports as cot
 
 from config import data_path, ensure_data_dir
+from i18n import t
+
+CAT_KEYS = ["noncommercial", "commercial", "nonreportable", "total_reportable"]
 
 
 @dataclass
@@ -23,13 +26,6 @@ class CotData:
 
     COL_MARKET = "Market and Exchange Names"
     COL_DATE = "As of Date in Form YYYY-MM-DD"
-
-    CATEGORIES = [
-        ("noncommercial", "\u975e\u5546\u4e1a"),
-        ("commercial", "\u5546\u4e1a"),
-        ("nonreportable", "\u975e\u62a5\u544a"),
-        ("total_reportable", "\u62a5\u544a\u5408\u8ba1"),
-    ]
 
     TXT_MAP = {
         "legacy_fut": "annual.txt",
@@ -198,15 +194,13 @@ class CotData:
         """Return a list of rows for the data table (one per date)."""
         sub = self.filter_by_market(market)
         rows = []
-        cat_map = {k: v for k, v in self.CATEGORIES}
-
         for _, row in sub.iterrows():
             r: dict[str, Any] = {
                 "date": str(row[self._col_date].date()) if pd.notna(row[self._col_date]) else "-",
                 "market": str(row[self._col_market]),
                 "oi": self.safe_val(row, self.get_oi_col()),
             }
-            for cat_key, cat_label in self.CATEGORIES:
+            for cat_key in CAT_KEYS:
                 longs = self.safe_val(row, self.get_long_col(cat_key))
                 shorts = self.safe_val(row, self.get_short_col(cat_key))
                 r[f"{cat_key}_long"] = longs
@@ -236,7 +230,8 @@ class CotData:
             "oi_change": self.safe_val(row, self.get_oi_change_col()),
         }
         detail["categories"] = {}
-        for cat_key, cat_label in self.CATEGORIES:
+        for cat_key in CAT_KEYS:
+            cat_label = t(cat_key)
             longs = self.safe_val(row, self.get_long_col(cat_key))
             shorts = self.safe_val(row, self.get_short_col(cat_key))
             spread = self.safe_val(row, self.get_spread_col(cat_key))

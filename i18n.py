@@ -63,6 +63,10 @@ _TRANSLATIONS = {
         "cycle_panels": "切换面板",
         "focus_list": "聚焦列表",
         "search": "搜索",
+        "noncommercial": "非商业",
+        "commercial": "商业",
+        "nonreportable": "非报告",
+        "total_reportable": "报告合计",
     },
     "en": {
         "app_title": "CFTC COT Dashboard",
@@ -126,6 +130,10 @@ _TRANSLATIONS = {
         "cycle_panels": "Cycle Panels",
         "focus_list": "Focus List",
         "search": "Search",
+        "noncommercial": "Non-Commercial",
+        "commercial": "Commercial",
+        "nonreportable": "Non-Reportable",
+        "total_reportable": "Total Reportable",
     },
 }
 

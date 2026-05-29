@@ -121,6 +121,7 @@ class CotTui(App[None]):
         def _cb(data: dict) -> None:
             if data:
                 cfg = load_app_config()
+                set_lang(cfg.get("lang", DEFAULT_LANG))
                 new_type = cfg.get("report_type", self.report_type)
                 new_year = cfg.get("year", self.year)
                 new_start = cfg.get("start_year", self.start_year)
@@ -129,6 +130,10 @@ class CotTui(App[None]):
                     self.year = new_year
                     self.start_year = new_start
                     self.action_refresh()
+                else:
+                    main = self.get_current_main()
+                    if main:
+                        main.refresh_data()
 
         self.push_screen(SettingsScreen(), callback=_cb)
 
