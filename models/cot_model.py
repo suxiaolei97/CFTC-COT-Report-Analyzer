@@ -32,13 +32,13 @@ def _cat_prefix(cat_key: str, cat_system: str) -> str:
     mapping = {
         "legacy": {
             "noncommercial": r"non[_\s]*commercial",
-            "commercial": r"commercial",
+            "commercial": r"(?<!\bnon[_\s])commercial",
             "nonreportable": r"non[_\s]*reportable",
             "total_reportable": r"total[_\s]*reportable",
         },
         "disagg": {
             "prod_merc": r"prod[_\s]*merc",
-            "swap": r"swap",
+            "swap": r"(?<!\w)swap",
             "m_money": r"m[_\s]*money",
             "other_rept": r"other[_\s]*rept",
             "nonrept": r"non[_\s]*rept",
@@ -192,10 +192,12 @@ class CotData:
     def _cat_rx(self, category: str) -> str:
         return _cat_prefix(category, self.cat_system)
 
-    def _col(self, pattern: str) -> str | None:
+    def _col(self, pattern: str, exclude: str | None = None) -> str | None:
         rx = re.compile(pattern, re.IGNORECASE)
         for c in self.df.columns:
             if rx.search(c):
+                if exclude and re.search(exclude, c, re.IGNORECASE):
+                    continue
                 return c
         return None
 
@@ -206,25 +208,32 @@ class CotData:
         return self._col(r"^change[_\s]+in[_\s]+open[_\s]*interest")
 
     def get_long_col(self, category: str) -> str | None:
-        return self._col(rf"{self._cat_rx(category)}.*positions?{self._sep}*[-–]?{self._sep}*long")
+        exclude = "noncommercial" if category == "commercial" else None
+        return self._col(rf"{self._cat_rx(category)}.*positions?{self._sep}*[-–]?{self._sep}*long", exclude)
 
     def get_short_col(self, category: str) -> str | None:
-        return self._col(rf"{self._cat_rx(category)}.*positions?{self._sep}*[-–]?{self._sep}*short")
+        exclude = "noncommercial" if category == "commercial" else None
+        return self._col(rf"{self._cat_rx(category)}.*positions?{self._sep}*[-–]?{self._sep}*short", exclude)
 
     def get_spread_col(self, category: str) -> str | None:
-        return self._col(rf"{self._cat_rx(category)}.*positions?{self._sep}*[-–]?{self._sep}*spread")
+        exclude = "noncommercial" if category == "commercial" else None
+        return self._col(rf"{self._cat_rx(category)}.*positions?{self._sep}*[-–]?{self._sep}*spread", exclude)
 
     def get_long_change_col(self, category: str) -> str | None:
-        return self._col(rf"change{self._sep}+in{self._sep}+{self._cat_rx(category)}{self._sep}*[-–]?{self._sep}*long")
+        exclude = "noncommercial" if category == "commercial" else None
+        return self._col(rf"change{self._sep}+in{self._sep}+{self._cat_rx(category)}{self._sep}*[-–]?{self._sep}*long", exclude)
 
     def get_short_change_col(self, category: str) -> str | None:
-        return self._col(rf"change{self._sep}+in{self._sep}+{self._cat_rx(category)}{self._sep}*[-–]?{self._sep}*short")
+        exclude = "noncommercial" if category == "commercial" else None
+        return self._col(rf"change{self._sep}+in{self._sep}+{self._cat_rx(category)}{self._sep}*[-–]?{self._sep}*short", exclude)
 
     def get_pct_long_col(self, category: str) -> str | None:
-        return self._col(rf"%{self._sep}*(of{self._sep}+oi)?{self._sep}*{self._cat_rx(category)}.*long")
+        exclude = "noncommercial" if category == "commercial" else None
+        return self._col(rf"%{self._sep}*(of{self._sep}+oi)?{self._sep}*{self._cat_rx(category)}.*long", exclude)
 
     def get_pct_short_col(self, category: str) -> str | None:
-        return self._col(rf"%{self._sep}*(of{self._sep}+oi)?{self._sep}*{self._cat_rx(category)}.*short")
+        exclude = "noncommercial" if category == "commercial" else None
+        return self._col(rf"%{self._sep}*(of{self._sep}+oi)?{self._sep}*{self._cat_rx(category)}.*short", exclude)
 
     def safe_val(self, row: pd.Series, col: str | None) -> float:
         if col is None or col not in row.index:
